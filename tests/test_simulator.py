@@ -74,14 +74,14 @@ def test_cross_two_times():
 def test_double_haploid():
     n_markers = 1000
     n_ind = 100
-    n_offpsring = 10
+    n_offspring = 10
 
     simulator = MockSimulator(n_markers=n_markers)
     population = simulator.load_population(n_ind)
 
-    new_pop = simulator.double_haploid(population, n_offpsring=n_offpsring)
+    new_pop = simulator.double_haploid(population, n_offspring=n_offspring)
 
-    assert len(new_pop) == len(population) * n_offpsring
+    assert len(new_pop) == len(population) * n_offspring
     assert new_pop.shape[1:] == population.shape[1:]
     assert np.all(new_pop[:, :, 0] == new_pop[:, :, 1])
 
