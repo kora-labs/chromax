@@ -182,3 +182,23 @@ def test_seed_deterministic():
     new_pop2 = simulator2.random_crosses(population, n_crosses=10)
 
     assert np.all(new_pop1 == new_pop2)
+
+
+def test_phenotyping():
+    n_markers, n_ind = 100, 10
+    simulator = MockSimulator(n_markers=n_markers)
+    population = simulator.load_population(n_ind)
+
+    phenotype = simulator.phenotype(population, num_environments=4)
+    assert len(phenotype) == n_ind
+
+    environments = np.random.uniform(-1, 1, size=(8,))
+    _ = simulator.phenotype(population, environments=environments)
+    assert len(phenotype) == n_ind
+
+    with pytest.raises(ValueError):
+        simulator.phenotype(
+            population,
+            num_environments=8,
+            environments=environments
+        )

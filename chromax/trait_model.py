@@ -5,11 +5,12 @@ from jaxtyping import Array, Bool, Float
 from .typing import Population
 
 
-class GEBVModel:
+class TraitModel:
 
     def __init__(
         self,
         marker_effects: Float[Array, "m traits"],
+        mean: Float[Array, "#traits"] = 0,
         device=None
     ) -> None:
         self.device = device
@@ -17,6 +18,7 @@ class GEBVModel:
             marker_effects,
             device=self.device
         )
+        self.mean = jax.device_put(mean, device=self.device)
         self.n_traits = marker_effects.shape[1]
 
         props = _effect_properties(self.marker_effects)
@@ -26,15 +28,18 @@ class GEBVModel:
         self,
         population: Population["n"]
     ) -> Float[Array, "n traits"]:
-        return _gebv(population, self.marker_effects)
+        return _call(population, self.marker_effects, self.mean)
+
 
 @jax.jit
-def _gebv(
+def _call(
     population: Population["n"],
-    marker_effects: Float[Array, "m traits"]
+    marker_effects: Float[Array, "m traits"],
+    mean: Float[Array, "#traits"]
 ) -> Float[Array, "n traits"]:
     monoploidy = population.sum(axis=-1, dtype=jnp.int8)
-    return jnp.dot(monoploidy, marker_effects)
+    return jnp.dot(monoploidy, marker_effects) + mean
+
 
 @jax.jit
 def _effect_properties(

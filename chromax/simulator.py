@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Callable, List, Optional, Union
 import pandas as pd
-from .gebv_model import GEBVModel
+from .trait_model import TraitModel
 from .typing import N_MARKERS, Haploid, Individual, Parents, Population
 from .index_functions import conventional_index
 import numpy as np
@@ -29,7 +29,7 @@ class Simulator:
         If not specified, the default device will be chosen.
      - backend: (str or XLA client): the backend of the device. 
         Common choices are `gpu`, `cpu` or `tpu`.
-    
+
     Example:
     >>> from chromax import Simulator
     >>> simulator = Simulator(genetic_map='path_to_genetic_map.csv')
@@ -42,12 +42,17 @@ class Simulator:
     def __init__(
         self,
         genetic_map: Union[Path, pd.DataFrame],
-        trait_names: List["str"] = ["Yield"],
+        trait_names: List[str] = ["Yield"],
+        h2: Optional[List[float]] = None,
         seed: Optional[int] = None,
         device: xc.Device = None,
         backend: Union[str, xc._xla.Client] = None
     ):
         self.trait_names = trait_names
+        self.random_key = None
+        if seed is None:
+            seed = random.randint(0, 2**32)
+        self.set_seed(seed)
 
         if device is None:  # use the right backend
             device = jax.local_devices(backend=backend)[0]
@@ -77,8 +82,21 @@ class Simulator:
         self.chr_lens = chr_map.groupby(chr_map).count().values
 
         mrk_effects = genetic_map[trait_names]
-        self.GEBV_model = GEBVModel(
+        self.GEBV_model = TraitModel(
             marker_effects=mrk_effects.to_numpy(),
+            device=self.device
+        )
+
+        if h2 is None:
+            self.random_key, split_key = jax.random.split(self.random_key)
+            h2 = jax.random.uniform(split_key, shape=(len(trait_names),))
+        self.random_key, split_key = jax.random.split(self.random_key)
+        env_effects = jax.random.normal(split_key, shape=(self.n_markers, len(trait_names)))
+        target_vars = (1 - h2) / h2 * self.GEBV_model.var
+        env_effects *= target_vars * 2
+        self.GxE_model = TraitModel(
+            marker_effects=env_effects,
+            mean=1,
             device=self.device
         )
 
@@ -86,7 +104,6 @@ class Simulator:
             recombination_vec = genetic_map["RecombRate"].to_numpy()
             # change semantic to "recombine now" instead of "recombine after"
             recombination_vec[1:] = recombination_vec[:-1]
-
             self.cM = np.zeros(self.n_markers, dtype=np.float32)
             start_idx = 0
             for chr_len in self.chr_lens:
@@ -96,7 +113,6 @@ class Simulator:
 
         elif "cM" in genetic_map.columns:
             self.cM = genetic_map["cM"].to_numpy()
-
             recombination_vec = np.zeros(self.n_markers, dtype=np.float32)
             recombination_vec[start_idx + 1:end_idx] = self.cM[start_idx + 1:end_idx] - self.cM[start_idx:end_idx - 1]
             recombination_vec /= 100
@@ -112,11 +128,6 @@ class Simulator:
             device=self.device
         )
 
-        self.random_key = None
-        if seed is None:
-            seed = random.randint(0, 2**32)
-        self.set_seed(seed)
-
     def set_seed(self, seed: int):
         """
         Set random seed for reproducibility.
@@ -128,10 +139,10 @@ class Simulator:
 
     def load_population(self, file_name: Union[Path, str]) -> Population["n"]:
         """Load a population from file.
-        
+
         Args:
          - file_name (path): path of the file with the population genome.
-        
+
         Returns:
          - population (array): loaded population of shape (n, m, 2), where
             n is the number of individual and m is the total number of marker.
@@ -152,12 +163,12 @@ class Simulator:
 
     def cross(self, parents: Parents["n"]) -> Population["n"]:
         """Main function that computes crosses from a list of parents.
-        
+
         Args:
          - parents (array): parents to compute the cross. The shape of
           the parents is (n, 2, m, 2), where n is the number of parents
           and m is the number of markers.
-        
+
         Returns:
          - population (array): offspring population of shape (n, m, 2).
         """
@@ -174,7 +185,7 @@ class Simulator:
     def differentiable_cross_func(self) -> Callable:
         """Experimental features that return a differentiable version
         of the cross function.
-        
+
         The differentiable crossing function takes as input:
          - population (array): starting population from which performing the crosses.
             The shape of the population is (n, m, 2).
@@ -183,7 +194,7 @@ class Simulator:
             When the n-axis has all zeros except of a single element equals to one,
             this function is equivalent to the cross function.
          - random_key (JAX random key): random key used for recombination sampling.
-        
+
         And returns a population of shape (l, m, 2).
         """
 
@@ -249,7 +260,7 @@ class Simulator:
 
         Args:
          - population (array): input population of shape (n, m, 2).
-        
+
         Returns:
          - population (array): Output population of shape (n, m, 2).
             This population will be homozygote.
@@ -285,12 +296,12 @@ class Simulator:
     ) -> Population["n*(n-1)/2*n_offspring"]:
         """Diallel crossing function, i.e. crossing between every possible
         couple, except self-crossing.
-        
+
         Args:
          - population (array): input population of shape (n, m, 2).
          - n_offspring (int): number of offspring per cross.
             The default value is 1.
-        
+
         Returns:
          - population (array): output population of shape (l * n_offspring, m, 2),
             where l is the number of possible pair, i.e `n * (n-1) / 2`.
@@ -299,9 +310,9 @@ class Simulator:
         if n_offspring < 1:
             raise ValueError("n_offspring must be higher or equal to 1")
 
-        all_indices = np.arange(len(population))
+        all_indices = jnp.arange(len(population))
         diallel_indices = self._diallel_indices(all_indices)
-        cross_indices = np.repeat(diallel_indices, n_offspring, axis=0)
+        cross_indices = jnp.repeat(diallel_indices, n_offspring, axis=0)
         return self.cross(population[cross_indices])
 
     def _diallel_indices(
@@ -326,7 +337,7 @@ class Simulator:
          - n_crosses (int): number of random crosses to perform.
          - n_offspring (int): number of offspring per cross. 
             The default value is 1.
-        
+
         Returns:
          - population (array): output population of shape (l, m, 2), 
             where l is `n_crosses * n_offspring`
@@ -369,7 +380,7 @@ class Simulator:
           The function accepts as input the individual, i.e. and array of shape
           (m, 2) and returns a float number. The default f_index is the conventional index, 
           i.e. the sum of the marker effects masked with the SNPs from the genetic_map.
-        
+
         Returns:
          - population (array): output population of shape (k, m, 2).
         """
@@ -382,14 +393,14 @@ class Simulator:
 
     def GEBV(
         self,
-        population: Population["n traits"]
+        population: Population["n"]
     ) -> pd.DataFrame:
-        """ Computes the Genomic Estimated Breeding Values using the
+        """Computes the Genomic Estimated Breeding Values using the
         marker effects from the genetic_map.
 
         Args:
          - population (array): input population of shape (n, m, 2).
-        
+
         Returns:
          - gebv (DataFrame): a DataFrame with n rows and a column for each trait.
             It contains the GEBV of each trait for each individual.
@@ -397,16 +408,60 @@ class Simulator:
         GEBV = self.GEBV_model(population)
         return pd.DataFrame(GEBV, columns=self.trait_names)
 
+    def phenotype(
+        self,
+        population: Population["n"],
+        *,
+        num_environments: Optional[int] = None,
+        environments: Optional[np.ndarray] = None
+    ) -> pd.DataFrame:
+        """Simulates the phenotype of a population.
+        This uses the Genotype-by-Environment model described in the following:
+        https://cran.r-project.org/web/packages/AlphaSimR/vignettes/traits.pdf
+
+        Args:
+         - population (array): input population of shape (n, m, 2)
+         - num_environments (int): number of environments to test the population.
+            Default value is 1.
+         - environments (array): environments to test the population. Each environment
+            must be represented by a floating number in the range (-1, 1).
+            When drawing new environments use uniform distribution to mantain 
+            heretability semantics.
+
+        Returns:
+         - phenotype (DataFrame): a DataFrame with n rows and a column for each trait.
+            It contains the simulated phenotype for each individual.
+        """
+        if num_environments is not None and environments is not None:
+            raise ValueError(
+                "You cannot specify both num_environments and environments"
+            )
+        if environments is None:
+            num_environments = num_environments if num_environments is not None else 1
+            self.random_key, split_key = jax.random.split(self.random_key)
+            environments = jax.random.uniform(
+                key=split_key,
+                shape=(num_environments,),
+                minval=-1
+            )
+
+        w = jnp.mean(environments)
+        GEBV = self.GEBV_model(population)
+        GxE = self.GxE_model(population)
+        # times 3 to compensate uniform distribution variance and match h2
+        phenotype = GEBV + 3 * w * GxE
+        return pd.DataFrame(phenotype, columns=self.trait_names)
+
     def corrcoef(
         self,
         population: Population["n"]
     ) -> Float[Array, "n"]:
         """Computes the correlation coefficient of the population against its centroid.
         It can be used as an indicator of variance in the population.
-        
+
         Args:
          - population (array): input population of shape (n, m, 2)
-        
+
         Returns:
          - corrcoefs (array): vector of length n, containing the correlation coefficient
             of each individual againts the average of the population.
@@ -416,19 +471,3 @@ class Simulator:
         pop_with_centroid = jnp.vstack([mean_pop, monoploid_enc])
         corrcoef = jnp.corrcoef(pop_with_centroid)
         return corrcoef[0, 1:]
-
-    @property
-    def max_gebv(self) -> float:
-        return self.GEBV_model.max
-
-    @property
-    def min_gebv(self) -> float:
-        return self.GEBV_model.min
-
-    @property
-    def mean_gebv(self) -> float:
-        return self.GEBV_model.mean
-
-    @property
-    def var_gebv(self) -> float:
-        return self.GEBV_model.var
