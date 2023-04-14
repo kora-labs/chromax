@@ -124,12 +124,13 @@ def test_random_crosses():
 
 def test_multi_trait():
     trait_names = [
+        "Heading Date",
+        "Protein Content",
+        "Plant Height",
+        "Thousand Kernel Weight",
         "Yield",
-        "Height",
-        "Heading_date",
-        "Zeleny",
-        "TKW",
-        "Falling_Number"
+        "Fusarium Head Blight",
+        "Spike Emergence Period"
     ]
     simulator = Simulator(genetic_map=genetic_map, trait_names=trait_names)
     population = simulator.load_population(genome)
