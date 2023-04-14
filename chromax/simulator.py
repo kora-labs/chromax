@@ -114,8 +114,11 @@ class Simulator:
         elif "cM" in genetic_map.columns:
             self.cM = genetic_map["cM"].to_numpy()
             recombination_vec = np.zeros(self.n_markers, dtype=np.float32)
-            recombination_vec[start_idx + 1:end_idx] = self.cM[start_idx + 1:end_idx] - self.cM[start_idx:end_idx - 1]
-            recombination_vec /= 100
+            start_idx = 0
+            for chr_len in self.chr_lens:
+                end_idx = start_idx + chr_len
+                recombination_vec[start_idx + 1:end_idx] = self.cM[start_idx + 1:end_idx] - self.cM[start_idx:end_idx - 1]
+                recombination_vec /= 100
         else:
             raise ValueError("One between RecombRate and cM must be specified")
 
