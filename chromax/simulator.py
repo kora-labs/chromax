@@ -258,21 +258,29 @@ class Simulator:
 
         return haploid.squeeze()
 
-    def double_haploid(self, population: Population["n"]) -> Population["n"]:
+    def double_haploid(
+        self,
+        population: Population["n"],
+        n_offspring: int = 1
+    ) -> Population["n*n_offspring"]:
         """Computes the double haploid of the input population.
 
         Args:
          - population (array): input population of shape (n, m, 2).
+         - n_offspring (int): number of offspring per plant.
+            The default value is 1.
 
         Returns:
-         - population (array): Output population of shape (n, m, 2).
+         - population (array): output population of shape (n * n_offspring, m, 2).
             This population will be homozygote.
         """
-        keys = jax.random.split(self.random_key, num=len(population) + 1)
+        donors_idx = jnp.arange(len(population) * n_offspring) // n_offspring
+        donors = population[donors_idx]
+        keys = jax.random.split(self.random_key, num=len(donors) + 1)
         self.random_key = keys[0]
         split_keys = keys[1:]
         return Simulator._vmap_dh(
-            population,
+            donors,
             self.recombination_vec,
             split_keys
         )

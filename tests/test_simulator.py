@@ -74,17 +74,16 @@ def test_cross_two_times():
 def test_double_haploid():
     n_markers = 1000
     n_ind = 100
+    n_offpsring = 10
 
-    rec_vector = np.zeros(n_markers, dtype='bool')
-    rec_vector[0] = 1
-    simulator = MockSimulator(recombination_vec=rec_vector)
+    simulator = MockSimulator(n_markers=n_markers)
     population = simulator.load_population(n_ind)
 
-    new_pop = simulator.double_haploid(population)
+    new_pop = simulator.double_haploid(population, n_offpsring=n_offpsring)
 
-    assert new_pop.shape == population.shape
-    assert np.all(new_pop[:, :, 0] == population[:, :, 1])
-    assert np.all(new_pop[:, :, 1] == population[:, :, 1])
+    assert len(new_pop) == len(population) * n_offpsring
+    assert new_pop.shape[1:] == population.shape[1:]
+    assert np.all(new_pop[:, :, 0] == new_pop[:, :, 1])
 
 
 def test_diallel():
