@@ -2,6 +2,15 @@ from math import ceil
 import numpy as np
 
 
+def phenotype_index(simulator, environments):
+
+    def phenotype_index_f(population):
+        phenotype = simulator.phenotype(population, environments=environments)
+        return phenotype.to_numpy()[..., 0]
+
+    return phenotype_index_f
+
+
 def conventional_index(GEBV_model):
     def conventional_index_f(pop):
         gebv = GEBV_model(pop)

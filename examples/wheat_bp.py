@@ -4,8 +4,8 @@
 
 from typing import Tuple
 from chromax import Simulator
+from chromax.index_functions import phenotype_index
 from chromax.typing import Individual, Population
-from functools import partial
 import numpy as np
 
 
@@ -30,26 +30,29 @@ def wheat_schema(
     pyt = simulator.select(
         headrows,
         k=50,
-        f_index=partial(simulator.phenotype, environments=envs[0])
+        f_index=phenotype_index(simulator, envs[0])
     )
     pyt_next_year = simulator.select(
         headrows,
         k=20,
-        f_index=partial(simulator.phenotype, environments=envs[0])
+        f_index=phenotype_index(simulator, envs[0])
     )
     ayt = simulator.select(
         pyt,
         k=10,
-        f_index=partial(simulator.phenotype, environments=envs[:4])
+        f_index=phenotype_index(simulator, envs[:4])
     )
 
     released_variety = simulator.select(
         ayt,
         k=1,
-        f_index=partial(simulator.phenotype, environments=envs)
+        f_index=phenotype_index(simulator, envs)
     )
 
-    next_year_germplasm = np.stack((pyt_next_year, ayt, hdrw_next_year))
+    next_year_germplasm = np.concatenate(
+        (pyt_next_year, ayt, hdrw_next_year),
+        axis=0
+    )
     return next_year_germplasm, released_variety
 
 
@@ -57,7 +60,7 @@ def visual_selection(simulator, noise_factor=1, seed=None):
     generator = np.random.default_rng(seed)
 
     def visual_selection_f(population):
-        phenotype = simulator.phenotype(population)
+        phenotype = simulator.phenotype(population).to_numpy()[..., 0]
         noise_var = simulator.GEBV_model.var * noise_factor
         noise = generator.normal(scale=noise_var, size=phenotype.shape)
         return phenotype + noise
