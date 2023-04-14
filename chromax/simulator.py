@@ -419,6 +419,28 @@ class Simulator:
         GEBV = self.GEBV_model(population)
         return pd.DataFrame(GEBV, columns=self.trait_names)
 
+    def create_environments(
+        self,
+        num_environments: int
+    ) -> Float[Array, "num_environments"]:
+        """Create environments to phenotype the population.
+        In practice, it generates number in the range [-1, 1]
+        following an uniform distribution.
+
+        Args:
+         - num_environments (int): number of environments to create.
+
+        Returns:
+         - environments (array): array of floating number in range [-1, 1]
+            This output can be used for the function `phenotype`.
+        """
+        self.random_key, split_key = jax.random.split(self.random_key)
+        return jax.random.uniform(
+            key=split_key,
+            shape=(num_environments,),
+            minval=-1
+        )
+
     def phenotype(
         self,
         population: Population["n"],
@@ -436,7 +458,7 @@ class Simulator:
             Default value is 1.
          - environments (array): environments to test the population. Each environment
             must be represented by a floating number in the range (-1, 1).
-            When drawing new environments use uniform distribution to mantain 
+            When drawing new environments use uniform distribution to mantain
             heretability semantics.
 
         Returns:
@@ -449,12 +471,7 @@ class Simulator:
             )
         if environments is None:
             num_environments = num_environments if num_environments is not None else 1
-            self.random_key, split_key = jax.random.split(self.random_key)
-            environments = jax.random.uniform(
-                key=split_key,
-                shape=(num_environments,),
-                minval=-1
-            )
+            environments = self.create_environments(num_environments)
 
         w = jnp.mean(environments)
         GEBV = self.GEBV_model(population)
