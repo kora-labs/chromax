@@ -1,15 +1,15 @@
 from pathlib import Path
 from typing import Callable, List, Optional, Union
 import pandas as pd
+from . import functional
 from .trait_model import TraitModel
-from .typing import N_MARKERS, Haploid, Individual, Parents, Population
+from .typing import Parents, Population
 from .index_functions import conventional_index
 import numpy as np
 import jax
 import jax.numpy as jnp
 from jax._src.lib import xla_client as xc
 from jaxtyping import Array, Float, Int
-from functools import partial
 import random
 import logging
 
@@ -178,7 +178,7 @@ class Simulator:
         keys = jax.random.split(self.random_key, num=len(parents) * 2 + 1)
         self.random_key = keys[0]
         split_keys = keys[1:].reshape(len(parents), 2, 2)
-        return Simulator._cross(
+        return functional.cross(
             parents,
             self.recombination_vec,
             split_keys
@@ -202,7 +202,7 @@ class Simulator:
         """
 
         cross_haplo = jax.vmap(
-            Simulator._cross_individual,
+            functional._cross_individual,
             in_axes=(None, None, 0),
             out_axes=1
         )
@@ -222,41 +222,6 @@ class Simulator:
             return (cross_weights[:, :, None, :] * outer_res).sum(axis=1)
 
         return diff_cross_f
-
-    @staticmethod
-    @jax.jit
-    @partial(jax.vmap, in_axes=(0, None, 0))  # parallelize across individuals
-    @partial(jax.vmap, in_axes=(0, None, 0), out_axes=1)  # parallelize parents
-    def _cross(
-        parent: Individual,
-        recombination_vec: Float[Array, N_MARKERS],
-        random_key: jax.random.PRNGKeyArray
-    ) -> Haploid:
-        return Simulator._cross_individual(
-            parent,
-            recombination_vec,
-            random_key
-        )
-
-    @staticmethod
-    @jax.jit
-    def _cross_individual(
-        parent: Individual,
-        recombination_vec: Float[Array, N_MARKERS],
-        random_key: jax.random.PRNGKeyArray
-    ) -> Haploid:
-        samples = jax.random.uniform(random_key, shape=recombination_vec.shape)
-        rec_sites = samples < recombination_vec
-        crossover_mask = jax.lax.associative_scan(jnp.logical_xor, rec_sites)
-
-        crossover_mask = crossover_mask.astype(jnp.int8)
-        haploid = jnp.take_along_axis(
-            parent,
-            crossover_mask[:, None],
-            axis=-1
-        )
-
-        return haploid.squeeze()
 
     def double_haploid(
         self,
@@ -279,26 +244,11 @@ class Simulator:
         keys = jax.random.split(self.random_key, num=len(donors) + 1)
         self.random_key = keys[0]
         split_keys = keys[1:]
-        return Simulator._vmap_dh(
+        return functional.double_haploid(
             donors,
             self.recombination_vec,
             split_keys
         )
-
-    @staticmethod
-    @jax.jit
-    @partial(jax.vmap, in_axes=(0, None, 0))  # parallelize across individuals
-    def _vmap_dh(
-        individual: Individual,
-        recombination_vec: Float[Array, N_MARKERS],
-        random_key: jax.random.PRNGKeyArray
-    ) -> Individual:
-        haploid = Simulator._cross_individual(
-            individual,
-            recombination_vec,
-            random_key
-        )
-        return jnp.broadcast_to(haploid[:, None], shape=(*haploid.shape, 2))
 
     def diallel(
         self,
