@@ -93,7 +93,7 @@ class Simulator:
         self.random_key, split_key = jax.random.split(self.random_key)
         env_effects = jax.random.normal(split_key, shape=(self.n_markers, len(trait_names)))
         target_vars = (1 - h2) / h2 * self.GEBV_model.var
-        env_effects *= target_vars * 2
+        env_effects *= target_vars * 2 / self.n_markers
         self.GxE_model = TraitModel(
             marker_effects=env_effects,
             mean=1,
@@ -374,21 +374,19 @@ class Simulator:
         num_environments: int
     ) -> Float[Array, "num_environments"]:
         """Create environments to phenotype the population.
-        In practice, it generates number in the range [-1, 1]
-        following an uniform distribution.
+        In practice, it generates random numbers from a normal distribution.
 
         Args:
          - num_environments (int): number of environments to create.
 
         Returns:
-         - environments (array): array of floating number in range [-1, 1]
+         - environments (array): array of floating point numbers.
             This output can be used for the function `phenotype`.
         """
         self.random_key, split_key = jax.random.split(self.random_key)
-        return jax.random.uniform(
+        return jax.random.normal(
             key=split_key,
             shape=(num_environments,),
-            minval=-1
         )
 
     def phenotype(
@@ -408,7 +406,7 @@ class Simulator:
             Default value is 1.
          - environments (array): environments to test the population. Each environment
             must be represented by a floating number in the range (-1, 1).
-            When drawing new environments use uniform distribution to mantain
+            When drawing new environments use normal distribution to mantain
             heretability semantics.
 
         Returns:
@@ -426,8 +424,7 @@ class Simulator:
         w = jnp.mean(environments)
         GEBV = self.GEBV_model(population)
         GxE = self.GxE_model(population)
-        # times 3 to compensate uniform distribution variance and match h2
-        phenotype = GEBV + 3 * w * GxE
+        phenotype = GEBV + w * GxE
         return pd.DataFrame(phenotype, columns=self.trait_names)
 
     def corrcoef(

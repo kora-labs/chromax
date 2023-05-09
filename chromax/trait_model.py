@@ -51,6 +51,6 @@ def _effect_properties(
     min_gebv = 2 * jnp.sum(marker_effects, axis=0, where=~positive_mask)
     mean = jnp.sum(marker_effects, axis=0)
     # using variance property for sum of independent variables
-    var = jnp.mean(marker_effects**2, axis=0) / 2
+    var = jnp.sum(marker_effects**2, axis=0) / 2
 
     return positive_mask, max_gebv, min_gebv, mean, var
