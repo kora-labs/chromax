@@ -147,11 +147,11 @@ class Simulator:
          - file_name (path): path of the file with the population genome.
 
         Returns:
-         - population (array): loaded population of shape (n, m, 2), where
-            n is the number of individual and m is the total number of marker.
+         - population (array): loaded population of shape (n, m, d), where
+            n is the number of individual, m is the total number of marker,
+            and d is the diploidy of the population.
         """
-        population = np.loadtxt(file_name, dtype='bool')
-        population = population.reshape(population.shape[0], self.n_markers, 2)
+        population = np.load(file_name)
         return jax.device_put(population, device=self.device)
 
     def save_population(self, population: Population["n"], file_name: Union[Path, str]):
@@ -161,8 +161,7 @@ class Simulator:
          - population (array): population to save.
          - file_name (path): file path to save the population.
         """
-        flatten_pop = population.reshape(population.shape[0], -1)
-        np.savetxt(file_name, flatten_pop, fmt="%i")
+        np.save(file_name, population, allow_pickle=False)
 
     def cross(self, parents: Parents["n"]) -> Population["n"]:
         """Main function that computes crosses from a list of parents.
