@@ -43,7 +43,7 @@ class Simulator:
         self,
         genetic_map: Union[Path, pd.DataFrame],
         trait_names: List[str] = ["Yield"],
-        h2: Optional[List[float]] = None,
+        h2: Optional[np.ndarray] = None,
         seed: Optional[int] = None,
         device: xc.Device = None,
         backend: Union[str, xc._xla.Client] = None
@@ -64,7 +64,7 @@ class Simulator:
             if len(matched_devices) == 0:
                 print(jax.devices(), flush=True)
                 logging.warning(
-                    f"No device with id:{device}. Using the default one."
+                    "No device with id: %i. Using the default one.", device
                 )
                 device = jax.local_devices(backend=backend)[0]
             else:
@@ -88,8 +88,7 @@ class Simulator:
         )
 
         if h2 is None:
-            self.random_key, split_key = jax.random.split(self.random_key)
-            h2 = jax.random.uniform(split_key, shape=(len(trait_names),))
+            h2 = np.full((len(trait_names),), 0.5)
         self.random_key, split_key = jax.random.split(self.random_key)
         env_effects = jax.random.normal(split_key, shape=(self.n_markers, len(trait_names)))
         target_vars = (1 - h2) / h2 * self.GEBV_model.var
