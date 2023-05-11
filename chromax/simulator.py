@@ -42,13 +42,15 @@ class Simulator:
     def __init__(
         self,
         genetic_map: Union[Path, pd.DataFrame],
-        trait_names: List[str] = ["Yield"],
+        trait_names: Optional[List[str]] = None,
+        chr_column: str = "CHR.PHYS",
+        position_column: str = "cM",
+        recombination_column: str = "RecombRate",
         h2: Optional[np.ndarray] = None,
         seed: Optional[int] = None,
         device: xc.Device = None,
         backend: Union[str, xc._xla.Client] = None
     ):
-        self.trait_names = trait_names
         self.random_key = None
         if seed is None:
             seed = random.randint(0, 2**32)
@@ -72,25 +74,26 @@ class Simulator:
         self.device = device
 
         if not isinstance(genetic_map, pd.DataFrame):
-            types = {name: 'float32' for name in trait_names}
-            types['cM'] = 'float32'
-            types['RecombRate'] = 'float32'
-            genetic_map = pd.read_table(genetic_map, sep="\t", dtype=types)
+            genetic_map = pd.read_table(genetic_map, sep="\t")
+        if trait_names is None:
+            other_col = {chr_column, position_column, recombination_column}
+            trait_names = genetic_map.columns.drop(other_col, errors='ignore')
+        self.trait_names = trait_names
 
         self.n_markers = len(genetic_map)
-        chr_map = genetic_map['CHR.PHYS']
+        chr_map = genetic_map[chr_column]
         self.chr_lens = chr_map.groupby(chr_map).count().values
 
-        mrk_effects = genetic_map[trait_names]
+        mrk_effects = genetic_map[self.trait_names]
         self.GEBV_model = TraitModel(
-            marker_effects=mrk_effects.to_numpy(),
+            marker_effects=mrk_effects.to_numpy(dtype=np.float32),
             device=self.device
         )
 
         if h2 is None:
-            h2 = np.full((len(trait_names),), 0.5)
+            h2 = np.full((len(self.trait_names),), 0.5)
         self.random_key, split_key = jax.random.split(self.random_key)
-        env_effects = jax.random.normal(split_key, shape=(self.n_markers, len(trait_names)))
+        env_effects = jax.random.normal(split_key, shape=(self.n_markers, len(self.trait_names)))
         target_vars = (1 - h2) / h2 * self.GEBV_model.var
         env_effects *= target_vars * 2 / self.n_markers
         self.GxE_model = TraitModel(
@@ -99,8 +102,8 @@ class Simulator:
             device=self.device
         )
 
-        if "RecombRate" in genetic_map.columns:
-            recombination_vec = genetic_map["RecombRate"].to_numpy()
+        if recombination_column in genetic_map.columns:
+            recombination_vec = genetic_map[recombination_column].to_numpy(dtype=np.float32)
             # change semantic to "recombine now" instead of "recombine after"
             recombination_vec[1:] = recombination_vec[:-1]
             self.cM = np.zeros(self.n_markers, dtype=np.float32)
@@ -110,8 +113,8 @@ class Simulator:
                 self.cM[start_idx + 1:end_idx] = recombination_vec[start_idx + 1:end_idx].cumsum() * 100
                 start_idx = end_idx
 
-        elif "cM" in genetic_map.columns:
-            self.cM = genetic_map["cM"].to_numpy()
+        elif position_column in genetic_map.columns:
+            self.cM = genetic_map[position_column].to_numpy(dtype=np.float32)
             recombination_vec = np.zeros(self.n_markers, dtype=np.float32)
             start_idx = 0
             for chr_len in self.chr_lens:
@@ -119,7 +122,9 @@ class Simulator:
                 recombination_vec[start_idx + 1:end_idx] = self.cM[start_idx + 1:end_idx] - self.cM[start_idx:end_idx - 1]
                 recombination_vec /= 100
         else:
-            raise ValueError("One between RecombRate and cM must be specified")
+            raise ValueError(
+                f"One between {recombination_column} and {position_column} must be specified"
+            )
 
         first_mrk_map = np.zeros(len(chr_map), dtype='bool')
         first_mrk_map[1:] = chr_map.iloc[1:].values != chr_map.iloc[:-1].values
