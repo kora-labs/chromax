@@ -12,8 +12,13 @@ def wheat_schema(
     factor = 1,
 ):
     f1 = simulator.random_crosses(germplasm, 200 * factor)
-    dh_lines = simulator.double_haploid(f1, n_offspring=100)
     
+    # dh_lines = simulator.double_haploid(f1, n_offspring=100)
+    # Use the following instead on M1 with 20x factor to avoid trashing
+    dh_lines1 = simulator.double_haploid(f1[:100*factor], n_offspring=100)
+    dh_lines2 = simulator.double_haploid(f1[100*factor:], n_offspring=100)
+    dh_lines = jax.numpy.concatenate((dh_lines1, dh_lines2))
+
     dh_lines = dh_lines.reshape(200 * factor, 100, *dh_lines.shape[1:])
     vmap_select = jax.vmap(simulator.select, (0, None, None))
     headrows = vmap_select(
