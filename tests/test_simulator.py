@@ -80,10 +80,13 @@ def test_double_haploid():
     population = simulator.load_population(n_ind)
 
     new_pop = simulator.double_haploid(population, n_offspring=n_offspring)
+    assert new_pop.shape == (len(population), n_offspring, *population.shape[1:])
+    assert np.all(new_pop[..., 0] == new_pop[..., 1])
 
-    assert len(new_pop) == len(population) * n_offspring
-    assert new_pop.shape[1:] == population.shape[1:]
-    assert np.all(new_pop[:, :, 0] == new_pop[:, :, 1])
+    new_pop = simulator.double_haploid(population)
+    assert new_pop.shape == population.shape
+    assert np.all(new_pop[..., 0] == new_pop[..., 1])
+
 
 
 def test_diallel():
@@ -96,10 +99,33 @@ def test_diallel():
     assert len(np.unique(diallel_indices, axis=0)) == 45
 
     new_pop = simulator.diallel(population)
-    assert len(new_pop) == n_ind * (n_ind - 1) // 2
+    assert new_pop.shape == (n_ind * (n_ind - 1) // 2, n_markers, 2)
 
     new_pop = simulator.diallel(population, n_offspring=10)
-    assert len(new_pop) == n_ind * (n_ind - 1) // 2 * 10
+    assert new_pop.shape == (n_ind * (n_ind - 1) // 2, 10, n_markers, 2)
+
+def test_select():
+    n_markers = 1000
+    n_ind = 100
+    simulator = MockSimulator(n_markers=n_markers)
+    population = simulator.load_population(n_ind)
+    pop_GEBV = simulator.GEBV(population)
+
+    selected_pop = simulator.select(population, k=10)
+    selected_GEBV = simulator.GEBV(selected_pop)
+    assert np.all(selected_GEBV.mean() > pop_GEBV.mean())
+    assert np.all(selected_GEBV.max() == pop_GEBV.max())
+    assert np.all(selected_GEBV.min() > pop_GEBV.min())
+
+    dh = simulator.double_haploid(population, n_offspring=100)
+    selected_dh = simulator.select(dh, k=5)
+    assert selected_dh.shape == (n_ind, 5, n_markers, 2)
+    for i in range(n_ind):
+        dh_GEBV = simulator.GEBV(dh[i])
+        selected_GEBV = simulator.GEBV(selected_dh[i])
+        assert np.all(selected_GEBV.mean() > dh_GEBV.mean())
+        assert np.all(selected_GEBV.max() == dh_GEBV.max())
+        assert np.all(selected_GEBV.min() > dh_GEBV.min())
 
 
 def test_random_crosses():
@@ -118,7 +144,7 @@ def test_random_crosses():
         n_crosses=n_crosses,
         n_offspring=n_offspring
     )
-    assert new_pop.shape == (n_crosses * n_offspring, n_markers, 2)
+    assert new_pop.shape == (n_crosses, n_offspring, n_markers, 2)
 
 
 def test_multi_trait():

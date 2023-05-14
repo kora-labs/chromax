@@ -230,7 +230,7 @@ class Simulator:
         self,
         population: Population["n"],
         n_offspring: int = 1
-    ) -> Population["n*n_offspring"]:
+    ) -> Population["n n_offspring"]:
         """Computes the double haploid of the input population.
 
         Args:
@@ -239,25 +239,26 @@ class Simulator:
             The default value is 1.
 
         Returns:
-         - population (array): output population of shape (n * n_offspring, m, 2).
+         - population (array): output population of shape (n, n_offspring, m, 2).
             This population will be homozygote.
         """
-        donors_idx = jnp.arange(len(population) * n_offspring) // n_offspring
-        donors = population[donors_idx]
-        keys = jax.random.split(self.random_key, num=len(donors) + 1)
-        self.random_key = keys[0]
-        split_keys = keys[1:]
-        return functional.double_haploid(
-            donors,
+        self.random_key, split_key = jax.random.split(self.random_key)
+        dh = functional.double_haploid(
+            population,
+            n_offspring,
             self.recombination_vec,
-            split_keys
+            split_key
         )
+
+        if n_offspring == 1:
+            dh = dh.squeeze(1)
+        return dh
 
     def diallel(
         self,
         population: Population["n"],
         n_offspring: int = 1
-    ) -> Population["n*(n-1)/2*n_offspring"]:
+    ) -> Population["n*(n-1)/2 n_offspring"]:
         """Diallel crossing function, i.e. crossing between every possible
         couple, except self-crossing.
 
@@ -267,7 +268,7 @@ class Simulator:
             The default value is 1.
 
         Returns:
-         - population (array): output population of shape (l * n_offspring, m, 2),
+         - population (array): output population of shape (l, n_offspring, m, 2),
             where l is the number of possible pair, i.e `n * (n-1) / 2`.
         """
 
@@ -277,7 +278,11 @@ class Simulator:
         all_indices = jnp.arange(len(population))
         diallel_indices = self._diallel_indices(all_indices)
         cross_indices = jnp.repeat(diallel_indices, n_offspring, axis=0)
-        return self.cross(population[cross_indices])
+        out = self.cross(population[cross_indices])
+        out = out.reshape(len(diallel_indices), n_offspring, *out.shape[1:])
+        if n_offspring == 1:
+            out = out.squeeze(1)
+        return out
 
     def _diallel_indices(
         self,
@@ -293,7 +298,7 @@ class Simulator:
         population: Population["n"],
         n_crosses: int,
         n_offspring: int = 1
-    ) -> Population["n_crosses*n_offspring"]:
+    ) -> Population["n_crosses n_offspring"]:
         """Computes random crosses on a population.
 
         Args:
@@ -303,8 +308,7 @@ class Simulator:
             The default value is 1.
 
         Returns:
-         - population (array): output population of shape (l, m, 2), 
-            where l is `n_crosses * n_offspring`
+         - population (array): output population of shape (n_crosses, n_offspring, m, 2).
         """
 
         if n_crosses < 1:
@@ -327,33 +331,44 @@ class Simulator:
         cross_indices = diallel_indices[random_select_idx]
 
         cross_indices = np.repeat(cross_indices, n_offspring, axis=0)
-        return self.cross(population[cross_indices])
+        out = self.cross(population[cross_indices])
+        out = out.reshape(n_crosses, n_offspring, *out.shape[1:])
+        if n_offspring == 1:
+            out = out.squeeze(1)
+        return out
 
     def select(
         self,
-        population: Population["n"],
+        population: Population["_g n"],
         k: int,
         f_index: Optional[Callable[[Population["n"]], Float[Array, "n"]]] = None
-    ) -> Population["k"]:
+    ) -> Population["_g k"]:
         """Function to select individuals based on their score (index).
 
         Args:
-         - population (array): input population of shape (n, m, 2).
+         - population (array): input population of shape (n, m, 2), 
+            or shape (g, n, m, 2), to select k individual from each group population group g.
          - k (int): number of individual to select.
-         - f_index (function): function that computes a score from an individual.
-          The function accepts as input the individual, i.e. and array of shape
-          (m, 2) and returns a float number. The default f_index is the conventional index, 
+         - f_index (function): function that computes a score from each individual.
+          The function accepts as input the population, i.e. and array of shape
+          (n, m, 2) and returns a n float numbers. The default f_index is the conventional index, 
           i.e. the sum of the marker effects masked with the SNPs from the genetic_map.
 
         Returns:
-         - population (array): output population of shape (k, m, 2).
+         - population (array): output population of shape (k, m, 2) or (g, k, m, 2), 
+            depending on the input population.
         """
         if f_index is None:
             f_index = conventional_index(self.GEBV_model)
 
-        indices = f_index(population)
-        _, best_pop = jax.lax.top_k(indices, k)
-        return population[best_pop, :, :]
+        if len(population.shape) == 3:
+            select_f = functional.select
+        elif len(population.shape) == 4:
+            select_f = jax.vmap(functional.select, in_axes=(0, None, None))
+        else:
+            raise ValueError(f"Unexpected shape {population.shape} for input population")
+
+        return select_f(population, k, f_index)
 
     def GEBV(
         self,
