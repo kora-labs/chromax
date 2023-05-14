@@ -3,7 +3,6 @@ import timeit
 import pandas as pd
 import numpy as np
 from chromax.index_functions import phenotype_index
-import jax
 
 
 def wheat_schema(
@@ -19,9 +18,7 @@ def wheat_schema(
     # dh_lines2 = simulator.double_haploid(f1[100*factor:], n_offspring=100)
     # dh_lines = jax.numpy.concatenate((dh_lines1, dh_lines2))
 
-    dh_lines = dh_lines.reshape(200 * factor, 100, *dh_lines.shape[1:])
-    vmap_select = jax.vmap(simulator.select, (0, None, None))
-    headrows = vmap_select(
+    headrows = simulator.select(
         dh_lines,
         5,
         visual_selection(simulator, seed=7)
@@ -53,7 +50,7 @@ def visual_selection(simulator, noise_factor=1, seed=None):
     generator = np.random.default_rng(seed)
 
     def visual_selection_f(population):
-        phenotype = simulator.phenotype(population)[..., 0]
+        phenotype = simulator.phenotype(population, raw_array=True)[..., 0]
         noise_var = simulator.GEBV_model.var * noise_factor
         noise = generator.normal(scale=noise_var, size=phenotype.shape)
         return phenotype + noise
@@ -88,6 +85,5 @@ if __name__ == "__main__":
         times[i] = t
         del germplasm
 
-    print(times)
     print("Mean", np.mean(times[1:]))
     print("Std", np.std(times[1:]))

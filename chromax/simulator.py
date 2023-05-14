@@ -372,20 +372,26 @@ class Simulator:
 
     def GEBV(
         self,
-        population: Population["n"]
+        population: Population["n"],
+        *,
+        raw_array: bool = False
     ) -> pd.DataFrame:
         """Computes the Genomic Estimated Breeding Values using the
         marker effects from the genetic_map.
 
         Args:
          - population (array): input population of shape (n, m, 2).
+         - raw_array (bool): whether to return a raw array or a DataFrame.
+            Deafult value is False.
 
         Returns:
-         - gebv (DataFrame): a DataFrame with n rows and a column for each trait.
+         - gebv (DataFrame or array): a DataFrame (or array) with n rows and a column for each trait.
             It contains the GEBV of each trait for each individual.
         """
         GEBV = self.GEBV_model(population)
-        return pd.DataFrame(GEBV, columns=self.trait_names)
+        if not raw_array:
+            GEBV = pd.DataFrame(GEBV, columns=self.trait_names)
+        return GEBV
 
     def create_environments(
         self,
@@ -412,7 +418,8 @@ class Simulator:
         population: Population["n"],
         *,
         num_environments: Optional[int] = None,
-        environments: Optional[np.ndarray] = None
+        environments: Optional[np.ndarray] = None,
+        raw_array: bool = False
     ) -> pd.DataFrame:
         """Simulates the phenotype of a population.
         This uses the Genotype-by-Environment model described in the following:
@@ -426,9 +433,11 @@ class Simulator:
             must be represented by a floating number in the range (-1, 1).
             When drawing new environments use normal distribution to mantain
             heretability semantics.
+         - raw_array (bool): whether to return a raw array or a DataFrame.
+            Deafult value is False.
 
         Returns:
-         - phenotype (DataFrame): a DataFrame with n rows and a column for each trait.
+         - phenotype (DataFrame or array): a DataFrame (or array) with n rows and a column for each trait.
             It contains the simulated phenotype for each individual.
         """
         if num_environments is not None and environments is not None:
@@ -443,7 +452,9 @@ class Simulator:
         GEBV = self.GEBV_model(population)
         GxE = self.GxE_model(population)
         phenotype = GEBV + w * GxE
-        return pd.DataFrame(phenotype, columns=self.trait_names)
+        if not raw_array:
+            phenotype = pd.DataFrame(phenotype, columns=self.trait_names)
+        return phenotype
 
     def corrcoef(
         self,

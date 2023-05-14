@@ -5,8 +5,12 @@ import numpy as np
 def phenotype_index(simulator, environments):
 
     def phenotype_index_f(population):
-        phenotype = simulator.phenotype(population, environments=environments)
-        return phenotype.to_numpy()[..., 0]
+        phenotype = simulator.phenotype(
+            population,
+            environments=environments,
+            raw_array=True
+        )
+        return phenotype[..., 0]
 
     return phenotype_index_f
 
