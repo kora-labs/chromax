@@ -31,12 +31,12 @@ class Simulator:
         Common choices are `gpu`, `cpu` or `tpu`.
 
     Example:
-    >>> from chromax import Simulator
-    >>> simulator = Simulator(genetic_map='path_to_genetic_map.csv')
-    >>> f1 = simulator.load_population('path_to_genome.txt')
+    >>> from chromax import Simulator, sample_data
+    >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
+    >>> f1 = simulator.load_population(sample_data.genome)
     >>> f2 = simulator.random_crosses(f1, n_crosses=10, n_offspring=20)
-    >>> len(f2)
-    200
+    >>> f2.shape
+    (10, 20, 9839, 2)
     """
 
     def __init__(
@@ -95,7 +95,7 @@ class Simulator:
         self.random_key, split_key = jax.random.split(self.random_key)
         env_effects = jax.random.normal(split_key, shape=(self.n_markers, len(self.trait_names)))
         target_vars = (1 - h2) / h2 * self.GEBV_model.var
-        env_effects *= target_vars * 2 / self.n_markers
+        env_effects *= np.sqrt(2 * target_vars / self.n_markers)
         self.GxE_model = TraitModel(
             marker_effects=env_effects,
             mean=1,
@@ -154,6 +154,13 @@ class Simulator:
          - population (array): loaded population of shape (n, m, d), where
             n is the number of individual, m is the total number of marker,
             and d is the diploidy of the population.
+        
+        Example:
+        >>> from chromax import Simulator, sample_data
+        >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
+        >>> f1 = simulator.load_population(sample_data.genome)
+        >>> f1.shape
+        (371, 9839, 2)
         """
         population = np.load(file_name)
         return jax.device_put(population, device=self.device)
@@ -164,6 +171,13 @@ class Simulator:
         Args:
          - population (array): population to save.
          - file_name (path): file path to save the population.
+
+        Example:
+        >>> from chromax import Simulator, sample_data
+        >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
+        >>> f1 = simulator.load_population(sample_data.genome)
+        >>> f2 = simulator.random_crosses(f1, n_crosses=10, n_offspring=20)
+        >>> simulator.save_population(f2, "pop_file")
         """
         np.save(file_name, population, allow_pickle=False)
 
@@ -177,6 +191,21 @@ class Simulator:
 
         Returns:
          - population (array): offspring population of shape (n, m, 2).
+        
+        Example:
+        >>> from chromax import Simulator, sample_data
+        >>> import numpy as np
+        >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
+        >>> f1 = simulator.load_population(sample_data.genome)
+        >>> parents_indices = np.array([
+            [1, 5],
+            [4, 7],
+            [5, 6]
+        ])
+        >>> parents = f1[parents_indices]
+        >>> f2 = simulator.cross(parents)
+        >>> f2.shape
+        (3, 9839, 2)
         """
         keys = jax.random.split(self.random_key, num=len(parents) * 2 + 1)
         self.random_key = keys[0]
@@ -202,6 +231,24 @@ class Simulator:
          - random_key (JAX random key): random key used for recombination sampling.
 
         And returns a population of shape (l, m, 2).
+
+        Example:
+        >>> from chromax import Simulator, sample_data
+        >>> import numpy as np
+        >>> import jax
+        >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
+        >>> diff_cross = simulator.differentiable_cross_func()
+        >>> def mean_gebv(pop, weights, random_key):
+                new_pop = diff_cross(pop, weights, random_key)
+                return simulator.GEBV(new_pop, raw_array=True).mean()
+        >>> grad_f = jax.grad(mean_gebv, argnums=1)
+        >>> f1 = simulator.load_population(sample_data.genome)
+        >>> weights = np.random.uniform(size=(10, len(f1), 2))
+        >>> weights /= weights.sum(axis=1, keepdims=True)
+        >>> random_key = jax.random.PRNGKey(42)
+        >>> grad_value = grad_f(f1, weights, random_key)
+        >>> grad_value.shape
+        (10, 371, 2)
         """
 
         cross_haplo = jax.vmap(
@@ -241,6 +288,14 @@ class Simulator:
         Returns:
          - population (array): output population of shape (n, n_offspring, m, 2).
             This population will be homozygote.
+
+        Example:
+        >>> from chromax import Simulator, sample_data
+        >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
+        >>> f1 = simulator.load_population(sample_data.genome)
+        >>> dh = simulator.double_haploid(f1, n_offspring=10)
+        >>> dh.shape
+        (371, 10, 9839, 2)
         """
         self.random_key, split_key = jax.random.split(self.random_key)
         dh = functional.double_haploid(
@@ -270,6 +325,14 @@ class Simulator:
         Returns:
          - population (array): output population of shape (l, n_offspring, m, 2),
             where l is the number of possible pair, i.e `n * (n-1) / 2`.
+
+        Example:
+        >>> from chromax import Simulator, sample_data
+        >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
+        >>> f1 = simulator.load_population(sample_data.genome)[:10]
+        >>> f2 = simulator.diallel(f1, n_offspring=10)
+        >>> f2.shape
+        (45, 10, 9839, 2)
         """
 
         if n_offspring < 1:
@@ -309,6 +372,14 @@ class Simulator:
 
         Returns:
          - population (array): output population of shape (n_crosses, n_offspring, m, 2).
+
+        Example:
+        >>> from chromax import Simulator, sample_data
+        >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
+        >>> f1 = simulator.load_population(sample_data.genome)
+        >>> f2 = simulator.random_crosses(f1, 100, n_offspring=10)
+        >>> f2.shape
+        (100, 10, 9839, 2)
         """
 
         if n_crosses < 1:
@@ -357,6 +428,16 @@ class Simulator:
         Returns:
          - population (array): output population of shape (k, m, 2) or (g, k, m, 2), 
             depending on the input population.
+
+        Example:
+        >>> from chromax import Simulator, sample_data
+        >>> simulator = Simulator(genetic_map=sample_data.genetic_map, trait_names=["Yield"])
+        >>> f1 = simulator.load_population(sample_data.genome)
+        >>> len(f1), simulator.GEBV(f1).mean().values
+        (371, [8.223844])
+        >>> f2 = simulator.select(f1, k=20)
+        >>> len(f2), simulator.GEBV(f2).mean().values
+        (20, [14.595136])    
         """
         if f_index is None:
             f_index = conventional_index(self.GEBV_model)
@@ -375,7 +456,7 @@ class Simulator:
         population: Population["n"],
         *,
         raw_array: bool = False
-    ) -> pd.DataFrame:
+    ) -> Union[pd.DataFrame, np.ndarray]:
         """Computes the Genomic Estimated Breeding Values using the
         marker effects from the genetic_map.
 
@@ -387,6 +468,20 @@ class Simulator:
         Returns:
          - gebv (DataFrame or array): a DataFrame (or array) with n rows and a column for each trait.
             It contains the GEBV of each trait for each individual.
+
+        Example:
+        >>> from chromax import Simulator, sample_data
+        >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
+        >>> f1 = simulator.load_population(sample_data.genome)
+        >>> simulator.GEBV(f1).mean()
+        Heading Date              0.196119
+        Protein Content          -0.228718
+        Plant Height             -5.888406
+        Thousand Kernel Weight   -1.029418
+        Yield                     8.223843
+        Fusarium Head Blight      5.318052
+        Spike Emergence Period   -0.933169
+        dtype: float32
         """
         GEBV = self.GEBV_model(population)
         if not raw_array:
@@ -420,7 +515,7 @@ class Simulator:
         num_environments: Optional[int] = None,
         environments: Optional[np.ndarray] = None,
         raw_array: bool = False
-    ) -> pd.DataFrame:
+    ) -> Union[pd.DataFrame, np.ndarray]:
         """Simulates the phenotype of a population.
         This uses the Genotype-by-Environment model described in the following:
         https://cran.r-project.org/web/packages/AlphaSimR/vignettes/traits.pdf
@@ -439,6 +534,21 @@ class Simulator:
         Returns:
          - phenotype (DataFrame or array): a DataFrame (or array) with n rows and a column for each trait.
             It contains the simulated phenotype for each individual.
+        
+        Example:
+        >>> from chromax import Simulator, sample_data
+        >>> simulator = Simulator(genetic_map=sample_data.genetic_map, seed=42)
+        >>> f1 = simulator.load_population(sample_data.genome)
+        >>> envs = simulator.create_environments(4)
+        >>> simulator.phenotype(f1, environments=envs).mean()
+        Heading Date              0.105397
+        Protein Content          -0.172026
+        Plant Height             -5.813669
+        Thousand Kernel Weight   -1.372738
+        Yield                     8.306302
+        Fusarium Head Blight      4.286477
+        Spike Emergence Period   -0.575061
+        dtype: float32
         """
         if num_environments is not None and environments is not None:
             raise ValueError(
@@ -469,6 +579,14 @@ class Simulator:
         Returns:
          - corrcoefs (array): vector of length n, containing the correlation coefficient
             of each individual againts the average of the population.
+
+        Example:
+        >>> from chromax import Simulator, sample_data
+        >>> simulator = Simulator(genetic_map=sample_data.genetic_map, seed=42)
+        >>> f1 = simulator.load_population(sample_data.genome)
+        >>> corrcoef = simulator.corrcoef(f1)
+        >>> corrcoef.shape
+        (371,)
         """
         monoploid_enc = population.reshape(population.shape[0], -1)
         mean_pop = jnp.mean(monoploid_enc, axis=0)

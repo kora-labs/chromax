@@ -60,9 +60,9 @@ def visual_selection(simulator, noise_factor=1, seed=None):
     generator = np.random.default_rng(seed)
 
     def visual_selection_f(population):
-        phenotype = simulator.phenotype(population).to_numpy()[..., 0]
-        noise_var = simulator.GEBV_model.var * noise_factor
-        noise = generator.normal(scale=noise_var, size=phenotype.shape)
+        phenotype = simulator.phenotype(population, raw_array=True)[..., 0]
+        noise_var = (simulator.GxE_model.var + simulator.GxE_model.var) * noise_factor
+        noise = generator.normal(scale=np.sqrt(noise_var), size=phenotype.shape)
         return phenotype + noise
 
     return visual_selection_f

@@ -26,6 +26,24 @@ def cross(
 
     Returns:
         - population (array): offspring population of shape (n, m, 2).
+
+    Example:
+    >>> from chromax import functional
+    >>> import numpy as np
+    >>> import jax
+    >>> n_chr, chr_len = 10, 100
+    >>> n_crosses = 50
+    >>> parents_shape = (n_crosses, 2, n_chr * chr_len, 2)
+    >>> parents = np.random.choice([False, True], size=parents_shape)
+    >>> rec_vec = np.full((n_chr, chr_len), 1.5 / chr_len)
+    >>> rec_vec[:, 0] = 0.5  # equal probability on starting haploid
+    >>> rec_vec = rec_vec.flatten()
+    >>> random_key = jax.random.PRNGKey(42)
+    >>> random_keys = jax.random.split(random_key, num=2*n_crosses)
+    >>> random_keys = random_keys.reshape(n_crosses, 2, 2)
+    >>> f2 = functional.cross(parents, rec_vec, random_keys)
+    >>> f2.shape
+    (50, 1000, 2)
     """
     return _cross_individual(
         parent,
@@ -52,6 +70,21 @@ def double_haploid(
     Returns:
         - population (array): output population of shape (n, n_offspring, m, 2).
         This population will be homozygote.
+    
+    Example:
+    >>> from chromax import functional
+    >>> import numpy as np
+    >>> import jax
+    >>> n_chr, chr_len = 10, 100
+    >>> pop_shape = (50, n_chr * chr_len, 2)
+    >>> f1 = np.random.choice([False, True], size=pop_shape)
+    >>> rec_vec = np.full((n_chr, chr_len), 1.5 / chr_len)
+    >>> rec_vec[:, 0] = 0.5  # equal probability on starting haploid
+    >>> rec_vec = rec_vec.flatten()
+    >>> random_key = jax.random.PRNGKey(42)
+    >>> dh = functional.double_haploid(f1, 10, rec_vec, random_key)
+    >>> dh.shape
+    (50, 10, 1000, 2)
     """
     keys = jax.random.split(
         random_key, 
@@ -112,6 +145,21 @@ def select(
 
     Returns:
         - population (array): output population of (k, m, 2)
+
+    Example:
+    >>> from chromax import functional
+    >>> from chromax.trait_model import TraitModel
+    >>> from chromax.index_functions import conventional_index
+    >>> import numpy as np
+    >>> n_chr, chr_len = 10, 100
+    >>> pop_shape = (50, n_chr * chr_len, 2)
+    >>> f1 = np.random.choice([False, True], size=pop_shape)
+    >>> marker_effects = np.random.randn(n_chr * chr_len)
+    >>> gebv_model = TraitModel(marker_effects[:, None])
+    >>> f_index = conventional_index(gebv_model)
+    >>> f2 = functional.select(f1, k=10, f_index=f_index)
+    >>> f2.shape
+    (10, 1000, 2)
     """
 
     indices = f_index(population)
