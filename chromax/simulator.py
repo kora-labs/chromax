@@ -92,14 +92,13 @@ class Simulator:
 
         if h2 is None:
             h2 = np.full((len(self.trait_names),), 0.5)
+        self.random_key, split_key = jax.random.split(self.random_key)
+        env_effects = jax.random.normal(split_key, shape=(self.n_markers, len(self.trait_names)))
         target_vars = (1 - h2) / h2 * self.GEBV_model.var
-        self.random_key, key1, key2 = jax.random.split(self.random_key, num=3)
-        mean = 1 + jax.random.normal(key1) * np.sqrt(target_vars)
-        env_effects = jax.random.normal(key2, shape=(self.n_markers, len(self.trait_names)))
         env_effects *= np.sqrt(2 * target_vars / self.n_markers)
         self.GxE_model = TraitModel(
             marker_effects=env_effects,
-            mean=mean,
+            mean=1,
             device=self.device
         )
 
