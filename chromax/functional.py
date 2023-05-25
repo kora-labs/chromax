@@ -2,18 +2,15 @@ from typing import Callable
 import jax
 import jax.numpy as jnp
 from jaxtyping import Array, Float
-from .typing import N_MARKERS, Haploid, Individual, Population
+from .typing import N_MARKERS, Haploid, Individual, Parents, Population
 from functools import partial
 
-
 @jax.jit
-@partial(jax.vmap, in_axes=(0, None, 0))  # parallelize across individuals
-@partial(jax.vmap, in_axes=(0, None, 0), out_axes=1)  # parallelize parents
 def cross(
-    parent: Individual,
+    parents: Parents["n"],
     recombination_vec: Float[Array, N_MARKERS],
-    random_key: jax.random.PRNGKeyArray
-) -> Haploid:
+    random_key: jax.random.PRNGKeyArray,
+) -> Population["n"]:
     """Main function that computes crosses from a list of parents.
 
     Args:
@@ -22,7 +19,7 @@ def cross(
         and m is the number of markers.
         - recombination_vec (array): array of m probabilities.
         The i-th value represent the probability to recombine before the marker i.
-        - random_key (array): array of n PRNGKey, one for each pair of parents.
+        - random_key (array): PRNGKey, for reproducibility purpose
 
     Returns:
         - population (array): offspring population of shape (n, m, 2).
@@ -39,13 +36,23 @@ def cross(
     >>> rec_vec[:, 0] = 0.5  # equal probability on starting haploid
     >>> rec_vec = rec_vec.flatten()
     >>> random_key = jax.random.PRNGKey(42)
-    >>> random_keys = jax.random.split(random_key, num=2*n_crosses)
-    >>> random_keys = random_keys.reshape(n_crosses, 2, 2)
-    >>> f2 = functional.cross(parents, rec_vec, random_keys)
+    >>> f2 = functional.cross(parents, rec_vec, random_key)
     >>> f2.shape
     (50, 1000, 2)
     """
-    return _cross_individual(
+    random_keys = jax.random.split(random_key, num=len(parents) * 2)
+    random_keys = random_keys.reshape(len(parents), 2, 2)
+    return _cross(parents, recombination_vec, random_keys)
+
+@jax.jit
+@partial(jax.vmap, in_axes=(0, None, 0))  # parallelize across individuals
+@partial(jax.vmap, in_axes=(0, None, 0), out_axes=1)  # parallelize parents
+def _cross(
+    parent: Individual,
+    recombination_vec: Float[Array, N_MARKERS],
+    random_key: jax.random.PRNGKeyArray
+) -> Haploid:
+    return _meiosis(
         parent,
         recombination_vec,
         random_key
@@ -102,7 +109,7 @@ def _double_haploid(
     recombination_vec: Float[Array, N_MARKERS],
     random_key: jax.random.PRNGKeyArray
 ) -> Haploid:
-    return _cross_individual(
+    return _meiosis(
         individual,
         recombination_vec,
         random_key
@@ -110,8 +117,8 @@ def _double_haploid(
 
 
 @jax.jit
-def _cross_individual(
-    parent: Individual,
+def _meiosis(
+    individual: Individual,
     recombination_vec: Float[Array, N_MARKERS],
     random_key: jax.random.PRNGKeyArray
 ) -> Haploid:
@@ -121,7 +128,7 @@ def _cross_individual(
 
     crossover_mask = crossover_mask.astype(jnp.int8)
     haploid = jnp.take_along_axis(
-        parent,
+        individual,
         crossover_mask[:, None],
         axis=-1
     )

@@ -207,14 +207,8 @@ class Simulator:
         >>> f2.shape
         (3, 9839, 2)
         """
-        keys = jax.random.split(self.random_key, num=len(parents) * 2 + 1)
-        self.random_key = keys[0]
-        split_keys = keys[1:].reshape(len(parents), 2, 2)
-        return functional.cross(
-            parents,
-            self.recombination_vec,
-            split_keys
-        )
+        self.random_key, split_key = jax.random.split(self.random_key)
+        return functional.cross(parents, self.recombination_vec, split_key)
 
     @property
     def differentiable_cross_func(self) -> Callable:
@@ -252,7 +246,7 @@ class Simulator:
         """
 
         cross_haplo = jax.vmap(
-            functional._cross_individual,
+            functional._meiosis,
             in_axes=(None, None, 0),
             out_axes=1
         )
