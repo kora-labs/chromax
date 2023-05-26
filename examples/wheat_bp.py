@@ -17,11 +17,11 @@ def wheat_schema(
     dh_lines = simulator.double_haploid(f1, n_offspring=100)
     headrows = simulator.select(
         dh_lines,
-        k=500,
+        k=5,
         f_index=visual_selection(simulator, seed=7)
-    )
+    ).reshape(len(dh_lines) * 5, *dh_lines.shape[2:])
     hdrw_next_year = simulator.select(
-        dh_lines,
+        dh_lines.reshape(dh_lines.shape[0] * dh_lines.shape[1], *dh_lines.shape[2:]),
         k=20,
         f_index=visual_selection(simulator, seed=7)
     )
