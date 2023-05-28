@@ -3,3 +3,5 @@ __pycache__/
 .installed.cfg
 *.egg
 venv
+docs/_build
+docs/.DS_Store
