@@ -1,0 +1,2 @@
+include chromax/sample_data/genetic_map.csv
+include chromax/sample_data/genome.npy
