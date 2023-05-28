@@ -17,26 +17,43 @@ import logging
 class Simulator:
     """Breeding simulator class. It can perform the most common operation of a breeding program.
 
-    Args:
-     - genetic_map (Path or DataFrame): the path, or dataframe, containing the genetic map.
+    :param genetic_map: the path, or dataframe, containing the genetic map.
         It needs to have all the columns specified in trait_names, `CHR.PHYS` 
         (with the name of the marker chromosome), and one between `cM` or `RecombRate`.
-     - trait_names (List of strings): Column names in the genetic_map. 
+    :type genetic_map: Path or DataFrame
+    :param trait_names: column names in the genetic_map. 
         The values of the columns are the marker effects on the trait for each marker.
         The default value is `Yield`.
-     - seed (int, optional): The random seed for reproducibility.
-     - device (XLA Device, optional): the device on which to run the simulations. 
+    :type trait_names: List of strings
+    :param chr_column: name of the column containing the chromosome identifier.
+        The default value is `CHR.PHYS`.
+    :type chr_column: str
+    :param position_column: name of the column containing the position in cM of the marker.
+        The default value is `cM`.
+    :type position_column: str
+    :param recombination_column: name of the column containing the probability that a 
+        recombination happens before the current marker and after the previous one.
+        The default value is `RecombRate`.
+    :type recombination_column: str
+    :param h2: narrow-sense heritability value for each trait.
+        The default value is 0.5 for each trait.
+    :type h2: array of float
+    :param seed: the random seed for reproducibility.
+    :type seed: int
+    :param device: the device on which to run the simulations. 
         If not specified, the default device will be chosen.
-     - backend: (str or XLA client): the backend of the device. 
+    :type device: XLA Device
+    :param backend: the backend of the device. 
         Common choices are `gpu`, `cpu` or `tpu`.
+    :type backend: str or XLA client
 
-    Example:
-    >>> from chromax import Simulator, sample_data
-    >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
-    >>> f1 = simulator.load_population(sample_data.genome)
-    >>> f2 = simulator.random_crosses(f1, n_crosses=10, n_offspring=20)
-    >>> f2.shape
-    (10, 20, 9839, 2)
+    :Example:
+        >>> from chromax import Simulator, sample_data
+        >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
+        >>> f1 = simulator.load_population(sample_data.genome)
+        >>> f2 = simulator.random_crosses(f1, n_crosses=10, n_offspring=20)
+        >>> f2.shape
+        (10, 20, 9839, 2)
     """
 
     def __init__(
@@ -92,6 +109,7 @@ class Simulator:
 
         if h2 is None:
             h2 = np.full((len(self.trait_names),), 0.5)
+        h2 = np.asarray(h2)
         self.random_key, split_key = jax.random.split(self.random_key)
         env_effects = jax.random.normal(split_key, shape=(self.n_markers, len(self.trait_names)))
         target_vars = (1 - h2) / h2 * self.GEBV_model.var
@@ -139,28 +157,28 @@ class Simulator:
         """
         Set random seed for reproducibility.
 
-        Args:
-         - seed (int): random seed.
+        :param seed: random seed.
+        :type seed: int
         """
         self.random_key = jax.random.PRNGKey(seed)
 
     def load_population(self, file_name: Union[Path, str]) -> Population["n"]:
         """Load a population from file.
 
-        Args:
-         - file_name (path): path of the file with the population genome.
+        :param file_name: path of the file with the population genome.
+        :type file_name: path
 
-        Returns:
-         - population (array): loaded population of shape (n, m, d), where
+        :return: loaded population of shape (n, m, d), where
             n is the number of individual, m is the total number of marker,
             and d is the diploidy of the population.
+        :rtype: ndarray
         
-        Example:
-        >>> from chromax import Simulator, sample_data
-        >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
-        >>> f1 = simulator.load_population(sample_data.genome)
-        >>> f1.shape
-        (371, 9839, 2)
+        :Example:
+            >>> from chromax import Simulator, sample_data
+            >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
+            >>> f1 = simulator.load_population(sample_data.genome)
+            >>> f1.shape
+            (371, 9839, 2)
         """
         population = np.load(file_name)
         return jax.device_put(population, device=self.device)
@@ -168,44 +186,46 @@ class Simulator:
     def save_population(self, population: Population["n"], file_name: Union[Path, str]):
         """Save a population to file.
 
-        Args:
-         - population (array): population to save.
-         - file_name (path): file path to save the population.
+        :param population: population to save.
+        :type population: ndarray
+        :file_name: file path to save the population.
+        :type file_name: path
 
-        Example:
-        >>> from chromax import Simulator, sample_data
-        >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
-        >>> f1 = simulator.load_population(sample_data.genome)
-        >>> f2 = simulator.random_crosses(f1, n_crosses=10, n_offspring=20)
-        >>> simulator.save_population(f2, "pop_file")
+        :Example:
+            >>> from chromax import Simulator, sample_data
+            >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
+            >>> f1 = simulator.load_population(sample_data.genome)
+            >>> f2 = simulator.random_crosses(f1, n_crosses=10, n_offspring=20)
+            >>> simulator.save_population(f2, "pop_file")
         """
         np.save(file_name, population, allow_pickle=False)
 
     def cross(self, parents: Parents["n"]) -> Population["n"]:
         """Main function that computes crosses from a list of parents.
 
-        Args:
-         - parents (array): parents to compute the cross. The shape of
-          the parents is (n, 2, m, 2), where n is the number of parents
-          and m is the number of markers.
+        :param parents: parents to compute the cross. The shape of
+            the parents is (n, 2, m, 2), where n is the number of parents
+            and m is the number of markers.
+        :type parents: ndarray
 
-        Returns:
-         - population (array): offspring population of shape (n, m, 2).
         
-        Example:
-        >>> from chromax import Simulator, sample_data
-        >>> import numpy as np
-        >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
-        >>> f1 = simulator.load_population(sample_data.genome)
-        >>> parents_indices = np.array([
-            [1, 5],
-            [4, 7],
-            [5, 6]
-        ])
-        >>> parents = f1[parents_indices]
-        >>> f2 = simulator.cross(parents)
-        >>> f2.shape
-        (3, 9839, 2)
+        :return: offspring population of shape (n, m, 2).
+        :rtype: ndarray
+        
+        :Example:
+            >>> from chromax import Simulator, sample_data
+            >>> import numpy as np
+            >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
+            >>> f1 = simulator.load_population(sample_data.genome)
+            >>> parents_indices = np.array([
+                [1, 5],
+                [4, 7],
+                [5, 6]
+            ])
+            >>> parents = f1[parents_indices]
+            >>> f2 = simulator.cross(parents)
+            >>> f2.shape
+            (3, 9839, 2)
         """
         self.random_key, split_key = jax.random.split(self.random_key)
         return functional.cross(parents, self.recombination_vec, split_key)
@@ -226,23 +246,23 @@ class Simulator:
 
         And returns a population of shape (l, m, 2).
 
-        Example:
-        >>> from chromax import Simulator, sample_data
-        >>> import numpy as np
-        >>> import jax
-        >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
-        >>> diff_cross = simulator.differentiable_cross_func()
-        >>> def mean_gebv(pop, weights, random_key):
-                new_pop = diff_cross(pop, weights, random_key)
-                return simulator.GEBV(new_pop, raw_array=True).mean()
-        >>> grad_f = jax.grad(mean_gebv, argnums=1)
-        >>> f1 = simulator.load_population(sample_data.genome)
-        >>> weights = np.random.uniform(size=(10, len(f1), 2))
-        >>> weights /= weights.sum(axis=1, keepdims=True)
-        >>> random_key = jax.random.PRNGKey(42)
-        >>> grad_value = grad_f(f1, weights, random_key)
-        >>> grad_value.shape
-        (10, 371, 2)
+        :Example:
+            >>> from chromax import Simulator, sample_data
+            >>> import numpy as np
+            >>> import jax
+            >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
+            >>> diff_cross = simulator.differentiable_cross_func()
+            >>> def mean_gebv(pop, weights, random_key):
+                    new_pop = diff_cross(pop, weights, random_key)
+                    return simulator.GEBV(new_pop, raw_array=True).mean()
+            >>> grad_f = jax.grad(mean_gebv, argnums=1)
+            >>> f1 = simulator.load_population(sample_data.genome)
+            >>> weights = np.random.uniform(size=(10, len(f1), 2))
+            >>> weights /= weights.sum(axis=1, keepdims=True)
+            >>> random_key = jax.random.PRNGKey(42)
+            >>> grad_value = grad_f(f1, weights, random_key)
+            >>> grad_value.shape
+            (10, 371, 2)
         """
 
         cross_haplo = jax.vmap(
@@ -274,22 +294,23 @@ class Simulator:
     ) -> Population["n n_offspring"]:
         """Computes the double haploid of the input population.
 
-        Args:
-         - population (array): input population of shape (n, m, 2).
-         - n_offspring (int): number of offspring per plant.
+        :param population: input population of shape (n, m, 2).
+        :type population: ndarray
+        :param n_offspring: number of offspring per plant.
             The default value is 1.
+        :type n_offspring: int
 
-        Returns:
-         - population (array): output population of shape (n, n_offspring, m, 2).
+        :return: output population of shape (n, n_offspring, m, 2).
             This population will be homozygote.
+        :rtype: ndarray
 
-        Example:
-        >>> from chromax import Simulator, sample_data
-        >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
-        >>> f1 = simulator.load_population(sample_data.genome)
-        >>> dh = simulator.double_haploid(f1, n_offspring=10)
-        >>> dh.shape
-        (371, 10, 9839, 2)
+        :Example:
+            >>> from chromax import Simulator, sample_data
+            >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
+            >>> f1 = simulator.load_population(sample_data.genome)
+            >>> dh = simulator.double_haploid(f1, n_offspring=10)
+            >>> dh.shape
+            (371, 10, 9839, 2)
         """
         self.random_key, split_key = jax.random.split(self.random_key)
         dh = functional.double_haploid(
@@ -311,22 +332,23 @@ class Simulator:
         """Diallel crossing function, i.e. crossing between every possible
         couple, except self-crossing.
 
-        Args:
-         - population (array): input population of shape (n, m, 2).
-         - n_offspring (int): number of offspring per cross.
+        :param population: input population of shape (n, m, 2).
+        :type population: ndarray
+        :param n_offspring: number of offspring per cross.
             The default value is 1.
+        :type n_offspring: int
 
-        Returns:
-         - population (array): output population of shape (l, n_offspring, m, 2),
+        :return: output population of shape (l, n_offspring, m, 2),
             where l is the number of possible pair, i.e `n * (n-1) / 2`.
+        :rtype: ndarray
 
-        Example:
-        >>> from chromax import Simulator, sample_data
-        >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
-        >>> f1 = simulator.load_population(sample_data.genome)[:10]
-        >>> f2 = simulator.diallel(f1, n_offspring=10)
-        >>> f2.shape
-        (45, 10, 9839, 2)
+        :Example:
+            >>> from chromax import Simulator, sample_data
+            >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
+            >>> f1 = simulator.load_population(sample_data.genome)[:10]
+            >>> f2 = simulator.diallel(f1, n_offspring=10)
+            >>> f2.shape
+            (45, 10, 9839, 2)
         """
 
         if n_offspring < 1:
@@ -358,22 +380,24 @@ class Simulator:
     ) -> Population["n_crosses n_offspring"]:
         """Computes random crosses on a population.
 
-        Args:
-         - population (array): input population of shape (n, m, 2).
-         - n_crosses (int): number of random crosses to perform.
-         - n_offspring (int): number of offspring per cross. 
+        :param population: input population of shape (n, m, 2).
+        :type population: ndarray
+        :param n_crosses: number of random crosses to perform.
+        :type n_crosses: int
+        :param n_offspring: number of offspring per cross. 
             The default value is 1.
+        :type n_offspring: int
 
-        Returns:
-         - population (array): output population of shape (n_crosses, n_offspring, m, 2).
+        :return: output population of shape (n_crosses, n_offspring, m, 2).
+        :rtype: ndarray
 
-        Example:
-        >>> from chromax import Simulator, sample_data
-        >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
-        >>> f1 = simulator.load_population(sample_data.genome)
-        >>> f2 = simulator.random_crosses(f1, 100, n_offspring=10)
-        >>> f2.shape
-        (100, 10, 9839, 2)
+        :Example:
+            >>> from chromax import Simulator, sample_data
+            >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
+            >>> f1 = simulator.load_population(sample_data.genome)
+            >>> f2 = simulator.random_crosses(f1, 100, n_offspring=10)
+            >>> f2.shape
+            (100, 10, 9839, 2)
         """
 
         if n_crosses < 1:
@@ -410,28 +434,30 @@ class Simulator:
     ) -> Population["_g k"]:
         """Function to select individuals based on their score (index).
 
-        Args:
-         - population (array): input population of shape (n, m, 2), 
+        :param population: input population of shape (n, m, 2), 
             or shape (g, n, m, 2), to select k individual from each group population group g.
-         - k (int): number of individual to select.
-         - f_index (function): function that computes a score from each individual.
-          The function accepts as input the population, i.e. and array of shape
-          (n, m, 2) and returns a n float numbers. The default f_index is the conventional index, 
-          i.e. the sum of the marker effects masked with the SNPs from the genetic_map.
+        :type population: ndarray
+        :param k: number of individual to select.
+        :type k: int
+        :param f_index: function that computes a score from each individual.
+            The function accepts as input the population, i.e. and array of shape
+            (n, m, 2) and returns a n float numbers. The default f_index is the conventional index, 
+            i.e. the sum of the marker effects masked with the SNPs from the genetic_map.
+        :type f_index: Callable
 
-        Returns:
-         - population (array): output population of shape (k, m, 2) or (g, k, m, 2), 
+        :return: output population of shape (k, m, 2) or (g, k, m, 2), 
             depending on the input population.
+        :rtype: ndarray
 
-        Example:
-        >>> from chromax import Simulator, sample_data
-        >>> simulator = Simulator(genetic_map=sample_data.genetic_map, trait_names=["Yield"])
-        >>> f1 = simulator.load_population(sample_data.genome)
-        >>> len(f1), simulator.GEBV(f1).mean().values
-        (371, [8.223844])
-        >>> f2 = simulator.select(f1, k=20)
-        >>> len(f2), simulator.GEBV(f2).mean().values
-        (20, [14.595136])    
+        :Example:
+            >>> from chromax import Simulator, sample_data
+            >>> simulator = Simulator(genetic_map=sample_data.genetic_map, trait_names=["Yield"])
+            >>> f1 = simulator.load_population(sample_data.genome)
+            >>> len(f1), simulator.GEBV(f1).mean().values
+            (371, [8.223844])
+            >>> f2 = simulator.select(f1, k=20)
+            >>> len(f2), simulator.GEBV(f2).mean().values
+            (20, [14.595136])    
         """
         if f_index is None:
             f_index = conventional_index(self.GEBV_model)
@@ -454,28 +480,29 @@ class Simulator:
         """Computes the Genomic Estimated Breeding Values using the
         marker effects from the genetic_map.
 
-        Args:
-         - population (array): input population of shape (n, m, 2).
-         - raw_array (bool): whether to return a raw array or a DataFrame.
+        :param population: input population of shape (n, m, 2).
+        :type population: ndarray
+        :param raw_array: whether to return a raw array or a DataFrame.
             Deafult value is False.
+        :type raw_array: bool
 
-        Returns:
-         - gebv (DataFrame or array): a DataFrame (or array) with n rows and a column for each trait.
+        :return: a DataFrame (or array) with n rows and a column for each trait.
             It contains the GEBV of each trait for each individual.
+        :rtype: DataFrame or ndarray
 
-        Example:
-        >>> from chromax import Simulator, sample_data
-        >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
-        >>> f1 = simulator.load_population(sample_data.genome)
-        >>> simulator.GEBV(f1).mean()
-        Heading Date              0.196119
-        Protein Content          -0.228718
-        Plant Height             -5.888406
-        Thousand Kernel Weight   -1.029418
-        Yield                     8.223843
-        Fusarium Head Blight      5.318052
-        Spike Emergence Period   -0.933169
-        dtype: float32
+        :Example:
+            >>> from chromax import Simulator, sample_data
+            >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
+            >>> f1 = simulator.load_population(sample_data.genome)
+            >>> simulator.GEBV(f1).mean()
+            Heading Date              0.196119
+            Protein Content          -0.228718
+            Plant Height             -5.888406
+            Thousand Kernel Weight   -1.029418
+            Yield                     8.223843
+            Fusarium Head Blight      5.318052
+            Spike Emergence Period   -0.933169
+            dtype: float32
         """
         GEBV = self.GEBV_model(population)
         if not raw_array:
@@ -489,12 +516,12 @@ class Simulator:
         """Create environments to phenotype the population.
         In practice, it generates random numbers from a normal distribution.
 
-        Args:
-         - num_environments (int): number of environments to create.
+        :param num_environments: number of environments to create.
+        :type num_environments: int
 
-        Returns:
-         - environments (array): array of floating point numbers.
+        :return: array of floating point numbers.
             This output can be used for the function `phenotype`.
+        :rtype: ndarray
         """
         self.random_key, split_key = jax.random.split(self.random_key)
         return jax.random.normal(
@@ -514,35 +541,38 @@ class Simulator:
         This uses the Genotype-by-Environment model described in the following:
         https://cran.r-project.org/web/packages/AlphaSimR/vignettes/traits.pdf
 
-        Args:
-         - population (array): input population of shape (n, m, 2)
-         - num_environments (int): number of environments to test the population.
+        :param population: input population of shape (n, m, 2)
+        :type population: ndarray
+        :param num_environments: number of environments to test the population.
             Default value is 1.
-         - environments (array): environments to test the population. Each environment
+        :type num_environments: int
+        :param environments: environments to test the population. Each environment
             must be represented by a floating number in the range (-1, 1).
             When drawing new environments use normal distribution to mantain
             heretability semantics.
-         - raw_array (bool): whether to return a raw array or a DataFrame.
+        :type environments: ndarray
+        :param raw_array: whether to return a raw array or a DataFrame.
             Deafult value is False.
+        :type raw_array: bool
 
-        Returns:
-         - phenotype (DataFrame or array): a DataFrame (or array) with n rows and a column for each trait.
+        :return: a DataFrame (or array) with n rows and a column for each trait.
             It contains the simulated phenotype for each individual.
+        :rtype: DataFrame or ndarray
         
-        Example:
-        >>> from chromax import Simulator, sample_data
-        >>> simulator = Simulator(genetic_map=sample_data.genetic_map, seed=42)
-        >>> f1 = simulator.load_population(sample_data.genome)
-        >>> envs = simulator.create_environments(4)
-        >>> simulator.phenotype(f1, environments=envs).mean()
-        Heading Date              0.105397
-        Protein Content          -0.172026
-        Plant Height             -5.813669
-        Thousand Kernel Weight   -1.372738
-        Yield                     8.306302
-        Fusarium Head Blight      4.286477
-        Spike Emergence Period   -0.575061
-        dtype: float32
+        :Example:
+            >>> from chromax import Simulator, sample_data
+            >>> simulator = Simulator(genetic_map=sample_data.genetic_map, seed=42)
+            >>> f1 = simulator.load_population(sample_data.genome)
+            >>> envs = simulator.create_environments(4)
+            >>> simulator.phenotype(f1, environments=envs).mean()
+            Heading Date              0.105397
+            Protein Content          -0.172026
+            Plant Height             -5.813669
+            Thousand Kernel Weight   -1.372738
+            Yield                     8.306302
+            Fusarium Head Blight      4.286477
+            Spike Emergence Period   -0.575061
+            dtype: float32
         """
         if num_environments is not None and environments is not None:
             raise ValueError(
@@ -567,20 +597,20 @@ class Simulator:
         """Computes the correlation coefficient of the population against its centroid.
         It can be used as an indicator of variance in the population.
 
-        Args:
-         - population (array): input population of shape (n, m, 2)
+        :param population: input population of shape (n, m, 2)
+        :type population: ndarray
 
-        Returns:
-         - corrcoefs (array): vector of length n, containing the correlation coefficient
+        :return: vector of length n, containing the correlation coefficient
             of each individual againts the average of the population.
+        :rtype: ndarray
 
-        Example:
-        >>> from chromax import Simulator, sample_data
-        >>> simulator = Simulator(genetic_map=sample_data.genetic_map, seed=42)
-        >>> f1 = simulator.load_population(sample_data.genome)
-        >>> corrcoef = simulator.corrcoef(f1)
-        >>> corrcoef.shape
-        (371,)
+        :Example:
+            >>> from chromax import Simulator, sample_data
+            >>> simulator = Simulator(genetic_map=sample_data.genetic_map, seed=42)
+            >>> f1 = simulator.load_population(sample_data.genome)
+            >>> corrcoef = simulator.corrcoef(f1)
+            >>> corrcoef.shape
+            (371,)
         """
         monoploid_enc = population.reshape(population.shape[0], -1)
         mean_pop = jnp.mean(monoploid_enc, axis=0)
