@@ -15,22 +15,22 @@ def cross(
 
     Args:
         - parents (array): parents to compute the cross. The shape of
-        the parents is (n, 2, m, 2), where n is the number of parents
-        and m is the number of markers.
+        the parents is (n, 2, m, d), where n is the number of parents, 
+        m is the number of markers, and d is the ploidy.
         - recombination_vec (array): array of m probabilities.
         The i-th value represent the probability to recombine before the marker i.
         - random_key (array): PRNGKey, for reproducibility purpose
 
     Returns:
-        - population (array): offspring population of shape (n, m, 2).
+        - population (array): offspring population of shape (n, m, d).
 
     Example:
     >>> from chromax import functional
     >>> import numpy as np
     >>> import jax
-    >>> n_chr, chr_len = 10, 100
+    >>> n_chr, chr_len, ploidy = 10, 100, 2
     >>> n_crosses = 50
-    >>> parents_shape = (n_crosses, 2, n_chr * chr_len, 2)
+    >>> parents_shape = (n_crosses, 2, n_chr * chr_len, ploidy)
     >>> parents = np.random.choice([False, True], size=parents_shape)
     >>> rec_vec = np.full((n_chr, chr_len), 1.5 / chr_len)
     >>> rec_vec[:, 0] = 0.5  # equal probability on starting haploid
@@ -40,13 +40,16 @@ def cross(
     >>> f2.shape
     (50, 1000, 2)
     """
-    random_keys = jax.random.split(random_key, num=len(parents) * 2)
-    random_keys = random_keys.reshape(len(parents), 2, 2)
-    return _cross(parents, recombination_vec, random_keys)
+    parents = parents.reshape(*parents.shape[:3], -1, 2)
+    random_keys = jax.random.split(random_key, num=len(parents) * 2 * parents.shape[3])
+    random_keys = random_keys.reshape(len(parents), 2, parents.shape[3], 2)
+    offsprings = _cross(parents, recombination_vec, random_keys)
+    return offsprings.reshape(*offsprings.shape[:-2], -1)
+
 
 @jax.jit
 @partial(jax.vmap, in_axes=(0, None, 0))  # parallelize across individuals
-@partial(jax.vmap, in_axes=(0, None, 0), out_axes=1)  # parallelize parents
+@partial(jax.vmap, in_axes=(0, None, 0), out_axes=2)  # parallelize parents
 def _cross(
     parent: Individual,
     recombination_vec: Float[Array, N_MARKERS],
@@ -68,22 +71,22 @@ def double_haploid(
     """Computes the double haploid of the input population.
 
     Args:
-        - population (array): input population of shape (n, m, 2).
+        - population (array): input population of shape (n, m, d).
         - n_offspring (int): number of offspring per plant.
         - recombination_vec (array): array of m probabilities.
         The i-th value represent the probability to recombine before the marker i.
         - random_key (array): array of n PRNGKey, one for each individual.
 
     Returns:
-        - population (array): output population of shape (n, n_offspring, m, 2).
+        - population (array): output population of shape (n, n_offspring, m, d).
         This population will be homozygote.
     
     Example:
     >>> from chromax import functional
     >>> import numpy as np
     >>> import jax
-    >>> n_chr, chr_len = 10, 100
-    >>> pop_shape = (50, n_chr * chr_len, 2)
+    >>> n_chr, chr_len, ploidy = 10, 100, 2
+    >>> pop_shape = (50, n_chr * chr_len, ploidy)
     >>> f1 = np.random.choice([False, True], size=pop_shape)
     >>> rec_vec = np.full((n_chr, chr_len), 1.5 / chr_len)
     >>> rec_vec[:, 0] = 0.5  # equal probability on starting haploid
@@ -93,12 +96,14 @@ def double_haploid(
     >>> dh.shape
     (50, 10, 1000, 2)
     """
+    population = population.reshape(*population.shape[:2], -1, 2)
     keys = jax.random.split(
         random_key, 
-        num=len(population) * n_offspring
-    ).reshape(len(population), n_offspring, 2)
-    haploid = _double_haploid(population, recombination_vec, keys)
-    return jnp.broadcast_to(haploid[..., None], shape=(*haploid.shape, 2))
+        num=len(population) * n_offspring * population.shape[2]
+    ).reshape(len(population), n_offspring, population.shape[2], 2)
+    haploids = _double_haploid(population, recombination_vec, keys)
+    dh_pop = jnp.broadcast_to(haploids[..., None], shape=(*haploids.shape, 2))
+    return dh_pop.reshape(*dh_pop.shape[:-2], -1)
 
 
 @jax.jit
@@ -117,6 +122,7 @@ def _double_haploid(
 
 
 @jax.jit
+@partial(jax.vmap, in_axes=(1, None, 0), out_axes=1) # parallelize pair of chromosomes
 def _meiosis(
     individual: Individual,
     recombination_vec: Float[Array, N_MARKERS],
@@ -144,22 +150,22 @@ def select(
     """Function to select individuals based on their score (index).
 
     Args:
-        - population (array): input grouped population of shape (n, m, 2)
+        - population (array): input grouped population of shape (n, m, d)
         - k (int): number of individual to select.
         - f_index (function): function that computes a score for each individual.
         The function accepts as input a population, i.e. and array of shape
         (n, m, 2) and returns an arrray of n float number.
 
     Returns:
-        - population (array): output population of (k, m, 2)
+        - population (array): output population of (k, m, d)
 
     Example:
     >>> from chromax import functional
     >>> from chromax.trait_model import TraitModel
     >>> from chromax.index_functions import conventional_index
     >>> import numpy as np
-    >>> n_chr, chr_len = 10, 100
-    >>> pop_shape = (50, n_chr * chr_len, 2)
+    >>> n_chr, chr_len, ploidy = 10, 100, 2
+    >>> pop_shape = (50, n_chr * chr_len, ploidy)
     >>> f1 = np.random.choice([False, True], size=pop_shape)
     >>> marker_effects = np.random.randn(n_chr * chr_len)
     >>> gebv_model = TraitModel(marker_effects[:, None])

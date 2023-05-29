@@ -204,12 +204,12 @@ class Simulator:
         """Main function that computes crosses from a list of parents.
 
         :param parents: parents to compute the cross. The shape of
-            the parents is (n, 2, m, 2), where n is the number of parents
-            and m is the number of markers.
+            the parents is (n, 2, m, d), where n is the number of parents, 
+            m is the number of markers, and d is the ploidy.
         :type parents: ndarray
 
         
-        :return: offspring population of shape (n, m, 2).
+        :return: offspring population of shape (n, m, d).
         :rtype: ndarray
         
         :Example:
@@ -237,21 +237,21 @@ class Simulator:
 
         The differentiable crossing function takes as input:
          - population (array): starting population from which performing the crosses.
-            The shape of the population is (n, m, 2).
-         - cross_weights (array): Array of shape (l, n, 2). It is used to compute
+            The shape of the population is (n, m, d).
+         - cross_weights (array): Array of shape (l, n, d). It is used to compute
             l crosses, starting from a weighted average of the n possible parents. 
             When the n-axis has all zeros except of a single element equals to one,
             this function is equivalent to the cross function.
          - random_key (JAX random key): random key used for recombination sampling.
 
-        And returns a population of shape (l, m, 2).
+        And returns a population of shape (l, m, d).
 
         :Example:
             >>> from chromax import Simulator, sample_data
             >>> import numpy as np
             >>> import jax
             >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
-            >>> diff_cross = simulator.differentiable_cross_func()
+            >>> diff_cross = simulator.differentiable_cross_func
             >>> def mean_gebv(pop, weights, random_key):
                     new_pop = diff_cross(pop, weights, random_key)
                     return simulator.GEBV(new_pop, raw_array=True).mean()
@@ -279,10 +279,12 @@ class Simulator:
             cross_weights: Float[Array, "m n 2"],
             random_key: jax.random.PRNGKeyArray
         ) -> Population["m"]:
-            num_keys = len(cross_weights) * len(population) * 2
-            keys = jax.random.split(random_key, num=num_keys)
-            keys = keys.reshape(len(cross_weights), len(population), 2, 2)
+            population = population.reshape(*population.shape[:-1], -1, 2)
+            keys_shape = len(cross_weights), len(population), 2, population.shape[-2]
+            keys = jax.random.split(random_key, num=np.prod(keys_shape))
+            keys = keys.reshape(*keys_shape, 2)
             outer_res = cross_pop(population, self.recombination_vec, keys)
+            outer_res = outer_res.reshape(*outer_res.shape[:-2], -1)
             return (cross_weights[:, :, None, :] * outer_res).sum(axis=1)
 
         return diff_cross_f
@@ -332,13 +334,13 @@ class Simulator:
         """Diallel crossing function, i.e. crossing between every possible
         couple, except self-crossing.
 
-        :param population: input population of shape (n, m, 2).
+        :param population: input population of shape (n, m, d).
         :type population: ndarray
         :param n_offspring: number of offspring per cross.
             The default value is 1.
         :type n_offspring: int
 
-        :return: output population of shape (l, n_offspring, m, 2),
+        :return: output population of shape (l, n_offspring, m, d),
             where l is the number of possible pair, i.e `n * (n-1) / 2`.
         :rtype: ndarray
 
@@ -380,7 +382,7 @@ class Simulator:
     ) -> Population["n_crosses n_offspring"]:
         """Computes random crosses on a population.
 
-        :param population: input population of shape (n, m, 2).
+        :param population: input population of shape (n, m, d).
         :type population: ndarray
         :param n_crosses: number of random crosses to perform.
         :type n_crosses: int
@@ -388,7 +390,7 @@ class Simulator:
             The default value is 1.
         :type n_offspring: int
 
-        :return: output population of shape (n_crosses, n_offspring, m, 2).
+        :return: output population of shape (n_crosses, n_offspring, m, d).
         :rtype: ndarray
 
         :Example:
@@ -399,12 +401,6 @@ class Simulator:
             >>> f2.shape
             (100, 10, 9839, 2)
         """
-
-        if n_crosses < 1:
-            raise ValueError("n_crosses must be higher or equal to 1")
-        if n_offspring < 1:
-            raise ValueError("n_offspring must be higher or equal to 1")
-
         all_indices = np.arange(len(population))
         diallel_indices = self._diallel_indices(all_indices)
         if n_crosses > len(diallel_indices):
@@ -434,18 +430,18 @@ class Simulator:
     ) -> Population["_g k"]:
         """Function to select individuals based on their score (index).
 
-        :param population: input population of shape (n, m, 2), 
-            or shape (g, n, m, 2), to select k individual from each group population group g.
+        :param population: input population of shape (n, m, d), 
+            or shape (g, n, m, d), to select k individual from each group population group g.
         :type population: ndarray
         :param k: number of individual to select.
         :type k: int
         :param f_index: function that computes a score from each individual.
             The function accepts as input the population, i.e. and array of shape
-            (n, m, 2) and returns a n float numbers. The default f_index is the conventional index, 
+            (n, m, d) and returns a n float numbers. The default f_index is the conventional index, 
             i.e. the sum of the marker effects masked with the SNPs from the genetic_map.
         :type f_index: Callable
 
-        :return: output population of shape (k, m, 2) or (g, k, m, 2), 
+        :return: output population of shape (k, m, d) or (g, k, m, d), 
             depending on the input population.
         :rtype: ndarray
 
@@ -480,7 +476,7 @@ class Simulator:
         """Computes the Genomic Estimated Breeding Values using the
         marker effects from the genetic_map.
 
-        :param population: input population of shape (n, m, 2).
+        :param population: input population of shape (n, m, d).
         :type population: ndarray
         :param raw_array: whether to return a raw array or a DataFrame.
             Deafult value is False.
@@ -541,7 +537,7 @@ class Simulator:
         This uses the Genotype-by-Environment model described in the following:
         https://cran.r-project.org/web/packages/AlphaSimR/vignettes/traits.pdf
 
-        :param population: input population of shape (n, m, 2)
+        :param population: input population of shape (n, m, d)
         :type population: ndarray
         :param num_environments: number of environments to test the population.
             Default value is 1.
@@ -597,7 +593,7 @@ class Simulator:
         """Computes the correlation coefficient of the population against its centroid.
         It can be used as an indicator of variance in the population.
 
-        :param population: input population of shape (n, m, 2)
+        :param population: input population of shape (n, m, d)
         :type population: ndarray
 
         :return: vector of length n, containing the correlation coefficient

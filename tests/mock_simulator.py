@@ -49,9 +49,9 @@ class MockSimulator(Simulator):
         super().__init__(genetic_map=genetic_map, **kwargs)
         self.recombination_vec = recombination_vec
 
-    def load_population(self, n_individual=100):
+    def load_population(self, n_individual=100, ploidy=2):
         return np.random.choice(
             a=[False, True],
-            size=(n_individual, self.n_markers, 2),
+            size=(n_individual, self.n_markers, ploidy),
             p=[0.5, 0.5]
         )

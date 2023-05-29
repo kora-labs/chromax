@@ -5,6 +5,7 @@ from mock_simulator import MockSimulator
 import numpy as np
 import pytest
 import warnings
+import pandas as pd
 
 
 @pytest.mark.parametrize("idx", [0, 1])
@@ -14,26 +15,29 @@ def test_cross_r(idx):
     recombination_vec[0] = idx
     simulator = MockSimulator(recombination_vec=recombination_vec)
 
-    size = (1, 2, simulator.n_markers, 2)
+    ploidy = 4
+    size = (1, 2, simulator.n_markers, ploidy)
     parents = np.random.choice(a=[False, True], size=size, p=[0.5, 0.5])
 
     new_pop = simulator.cross(parents)
 
-    assert new_pop.shape == (1, simulator.n_markers, 2)
+    assert new_pop.shape == (1, simulator.n_markers, ploidy)
 
     ind = new_pop[0]
-    assert np.all(ind[:, 0] == parents[0, 0, :, idx])
-    assert np.all(ind[:, 1] == parents[0, 1, :, idx])
+    for i in range(ploidy):
+        pair_chr_idx = i % 2
+        assert np.all(ind[:, i] == parents[0, pair_chr_idx, :, i - pair_chr_idx + idx])
 
 
 def test_equal_parents():
     simulator = Simulator(genetic_map=genetic_map)
 
-    parents = np.zeros((1, 2, simulator.n_markers, 2), dtype="bool")
+    ploidy = 4
+    parents = np.zeros((1, 2, simulator.n_markers, ploidy), dtype="bool")
     child = simulator.cross(parents)
     assert np.all(child == 0)
 
-    parents = np.ones((1, 2, simulator.n_markers, 2), dtype="bool")
+    parents = np.ones((1, 2, simulator.n_markers, ploidy), dtype="bool")
     child = simulator.cross(parents)
     assert np.all(child == 1)
 
@@ -45,7 +49,7 @@ def test_ad_hoc_cross():
     )
 
     simulator = MockSimulator(recombination_vec=rec_vec)
-    population = simulator.load_population(2)
+    population = simulator.load_population(2, ploidy=4)
     parents = population[np.array([[0, 1]])]
     child = simulator.cross(parents)
 
@@ -57,13 +61,15 @@ def test_ad_hoc_cross():
             chr_idx = 1 - chr_idx
         assert child[1, mrk_idx, 0] == population[0, mrk_idx, chr_idx]
         assert child[1, mrk_idx, 1] == population[1, mrk_idx, chr_idx]
+        assert child[1, mrk_idx, 2] == population[0, mrk_idx, 2 + chr_idx]
+        assert child[1, mrk_idx, 3] == population[1, mrk_idx, 2 + chr_idx]
 
 
 def test_cross_two_times():
     n_markers = 100_000
     n_ind = 2
     simulator = MockSimulator(n_markers=n_markers)
-    population = simulator.load_population(n_ind)
+    population = simulator.load_population(n_ind, ploidy=4)
 
     parents = population[np.array([[0, 1], [0, 1]])]
     children = simulator.cross(parents)
@@ -75,40 +81,45 @@ def test_double_haploid():
     n_markers = 1000
     n_ind = 100
     n_offspring = 10
+    ploidy = 4
 
     simulator = MockSimulator(n_markers=n_markers)
-    population = simulator.load_population(n_ind)
+    population = simulator.load_population(n_ind, ploidy=ploidy)
 
     new_pop = simulator.double_haploid(population, n_offspring=n_offspring)
     assert new_pop.shape == (len(population), n_offspring, *population.shape[1:])
     assert np.all(new_pop[..., 0] == new_pop[..., 1])
+    assert np.all(new_pop[..., 2] == new_pop[..., 3])
 
     new_pop = simulator.double_haploid(population)
     assert new_pop.shape == population.shape
     assert np.all(new_pop[..., 0] == new_pop[..., 1])
+    assert np.all(new_pop[..., 2] == new_pop[..., 3])
 
 
 
 def test_diallel():
     n_markers = 1000
     n_ind = 100
+    ploidy = 4
     simulator = MockSimulator(n_markers=n_markers)
-    population = simulator.load_population(n_ind)
+    population = simulator.load_population(n_ind, ploidy=ploidy)
 
     diallel_indices = simulator._diallel_indices(np.arange(10))
     assert len(np.unique(diallel_indices, axis=0)) == 45
 
     new_pop = simulator.diallel(population)
-    assert new_pop.shape == (n_ind * (n_ind - 1) // 2, n_markers, 2)
+    assert new_pop.shape == (n_ind * (n_ind - 1) // 2, n_markers, ploidy)
 
     new_pop = simulator.diallel(population, n_offspring=10)
-    assert new_pop.shape == (n_ind * (n_ind - 1) // 2, 10, n_markers, 2)
+    assert new_pop.shape == (n_ind * (n_ind - 1) // 2, 10, n_markers, ploidy)
 
 def test_select():
     n_markers = 1000
     n_ind = 100
+    ploidy = 4
     simulator = MockSimulator(n_markers=n_markers)
-    population = simulator.load_population(n_ind)
+    population = simulator.load_population(n_ind, ploidy=ploidy)
     pop_GEBV = simulator.GEBV(population)
 
     selected_pop = simulator.select(population, k=10)
@@ -119,7 +130,7 @@ def test_select():
 
     dh = simulator.double_haploid(population, n_offspring=100)
     selected_dh = simulator.select(dh, k=5)
-    assert selected_dh.shape == (n_ind, 5, n_markers, 2)
+    assert selected_dh.shape == (n_ind, 5, n_markers, ploidy)
     for i in range(n_ind):
         dh_GEBV = simulator.GEBV(dh[i])
         selected_GEBV = simulator.GEBV(selected_dh[i])
@@ -131,12 +142,13 @@ def test_select():
 def test_random_crosses():
     n_markers = 1000
     n_ind = 100
+    ploidy = 4
     simulator = MockSimulator(n_markers=n_markers)
-    population = simulator.load_population(n_ind)
+    population = simulator.load_population(n_ind, ploidy=ploidy)
 
     n_crosses = 300
     new_pop = simulator.random_crosses(population, n_crosses=n_crosses)
-    assert new_pop.shape == (n_crosses, n_markers, 2)
+    assert new_pop.shape == (n_crosses, n_markers, ploidy)
 
     n_offspring = 10
     new_pop = simulator.random_crosses(
@@ -144,7 +156,7 @@ def test_random_crosses():
         n_crosses=n_crosses,
         n_offspring=n_offspring
     )
-    assert new_pop.shape == (n_crosses, n_offspring, n_markers, 2)
+    assert new_pop.shape == (n_crosses, n_offspring, n_markers, ploidy)
 
 
 def test_multi_trait():
@@ -199,10 +211,11 @@ def test_device():
 
 def test_seed_deterministic():
     n_ind = 100
+    ploidy = 4
     simulator1 = Simulator(genetic_map=genetic_map, seed=7)
     simulator2 = Simulator(genetic_map=genetic_map, seed=7)
     mock_simulator = MockSimulator(n_markers=simulator1.n_markers)
-    population = mock_simulator.load_population(n_ind)
+    population = mock_simulator.load_population(n_ind, ploidy=ploidy)
 
     new_pop1 = simulator1.random_crosses(population, n_crosses=10)
     new_pop2 = simulator2.random_crosses(population, n_crosses=10)
@@ -210,10 +223,26 @@ def test_seed_deterministic():
     assert np.all(new_pop1 == new_pop2)
 
 
+def test_gebv():
+    n_markers, n_ind = 100, 10
+    ploidy = 4
+    simulator = MockSimulator(n_markers=n_markers)
+    population = simulator.load_population(n_ind, ploidy=ploidy)
+
+    gebv_pandas = simulator.GEBV(population)
+    assert len(gebv_pandas) == n_ind
+    assert isinstance(gebv_pandas, pd.DataFrame)
+
+    gebv_array = simulator.GEBV(population, raw_array=True)
+    assert len(gebv_array) == n_ind
+    assert np.all(gebv_pandas.values == gebv_array)
+
+
 def test_phenotyping():
     n_markers, n_ind = 100, 10
+    ploidy = 4
     simulator = MockSimulator(n_markers=n_markers)
-    population = simulator.load_population(n_ind)
+    population = simulator.load_population(n_ind, ploidy=ploidy)
 
     phenotype = simulator.phenotype(population, num_environments=4)
     assert len(phenotype) == n_ind
