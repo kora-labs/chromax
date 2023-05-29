@@ -10,3 +10,10 @@ sphinx:
 
 # Optionally build your docs in additional formats such as PDF and ePub
 formats: all
+
+# Install the package
+python:
+  version: 3.8
+  install:
+    - method: pip
+      path: .
