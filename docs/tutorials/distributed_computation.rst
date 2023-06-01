@@ -5,6 +5,7 @@ We present here how to perform computation on multiple devices.
 
 Imagine to have at your disposal 4 GPUs and you want to distribute the workload on them. 
 There are two ways in doing so:
+
 * Create 4 simulators, specifying different device for each one
 * Use the `JAX pmap <https://jax.readthedocs.io/en/latest/_autosummary/jax.pmap.html>`_ function to wrap the functions you need.
 
