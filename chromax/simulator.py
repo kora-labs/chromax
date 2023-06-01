@@ -534,8 +534,8 @@ class Simulator:
         raw_array: bool = False
     ) -> Union[pd.DataFrame, np.ndarray]:
         """Simulates the phenotype of a population.
-        This uses the Genotype-by-Environment model described in the following:
-        https://cran.r-project.org/web/packages/AlphaSimR/vignettes/traits.pdf
+        This uses the Genotype-by-Environment model described in `AlphaSimR 
+        <https://cran.r-project.org/web/packages/AlphaSimR/vignettes/traits.pdf>`_.
 
         :param population: input population of shape (n, m, d)
         :type population: ndarray

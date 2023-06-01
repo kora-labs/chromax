@@ -51,6 +51,7 @@ To cite ChromaX in publications:
   :caption: Tutorials:
 
   tutorials/data_format
+  tutorials/distributed_computation.rst
 
 Indices and tables
 ==================

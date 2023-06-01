@@ -1,7 +1,7 @@
 from jaxtyping import Array, Bool
 
 N_MARKERS = "m"
-DIPLOID_SHAPE = N_MARKERS + "d"
+DIPLOID_SHAPE = N_MARKERS + " d"
 
 Haploid = Bool[Array, N_MARKERS]
 Individual = Bool[Array, DIPLOID_SHAPE]
