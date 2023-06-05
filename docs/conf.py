@@ -2,13 +2,11 @@
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
-
-# -- Project information -----------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
+import os
 
 project = 'ChromaX'
-copyright = '2023, Younis et al.'
-author = 'Younis et al.'
+copyright = '2023, Younis, Omar G. et al.'
+author = 'Younis, Omar G. et al.'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -23,6 +21,11 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = 'default'
+on_rtd = os.environ.get("READTHEDOCS") == "True"
+if on_rtd:
+    html_theme = "default"
+else:
+    html_theme = "sphinx_rtd_theme"
+
 html_static_path = ['_static']
 autodoc_member_order = 'bysource'

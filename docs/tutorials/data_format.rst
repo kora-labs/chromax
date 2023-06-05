@@ -1,7 +1,7 @@
 Data format
 =================
 
-We explain here how we represent genomes in silico and how the genetic linkage map spreadsheet should be formatted. 
+We explain here how we represent genomes in silico and how to format the genetic linkage map spreadsheet.
 
 
 Genome data

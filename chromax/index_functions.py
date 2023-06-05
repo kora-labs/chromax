@@ -1,10 +1,22 @@
 from math import ceil
 import numpy as np
+from chromax.trait_model import TraitModel
+from typing import Callable
+from chromax.typing import Population
+from jaxtyping import Float, Array
 
 
-def phenotype_index(simulator, environments):
+def phenotype_index(simulator, environments: np.ndarray) -> Callable:
+    """Function to select based on phenotyping with some environments.
 
-    def phenotype_index_f(population):
+    :param simulator: chromax simulator instance to use for phenotyping simulation.
+    :type simulator: chromax.Simulator
+    :param environments: environments created using `create_environments` function from the simulator.
+
+    :return: the phenotyping index function to use for selection.
+    :rtype: Callable[[Population["n"]], Float[Array, "n"]]
+    """
+    def phenotype_index_f(population: Population["n"]) -> Float[Array, "n"]:
         phenotype = simulator.phenotype(
             population,
             environments=environments,
@@ -15,8 +27,43 @@ def phenotype_index(simulator, environments):
     return phenotype_index_f
 
 
-def conventional_index(GEBV_model):
-    def conventional_index_f(pop):
+def visual_selection(simulator, noise_factor: int = 1, seed: int = None) -> Callable:
+    """Function to select based on visual selection. 
+    Pratically, this is similar to phenotyping but with more noise.
+
+    :param simulator: chromax simulator instance to use for phenotyping simulation.
+    :type simulator: chromax.Simulator
+    :param noise_factor: variance ratio between the phenotype and artificial noise added 
+        to simulate visual selection inaccuracy.
+    :type noise_factor: int
+    :param seed: random seed for reproducibility.
+    :type seed: int
+
+    :return: the visual selection index function.
+    :rtype: Callable[[Population["n"]], Float[Array, "n"]]
+    """
+    generator = np.random.default_rng(seed)
+
+    def visual_selection_f(population: Population["n"]) -> Float[Array, "n"]:
+        phenotype = simulator.phenotype(population, raw_array=True)[..., 0]
+        noise_var = (simulator.GxE_model.var + simulator.GxE_model.var) * noise_factor
+        noise = generator.normal(scale=np.sqrt(noise_var), size=phenotype.shape)
+        return phenotype + noise
+
+    return visual_selection_f
+
+
+def conventional_index(GEBV_model: TraitModel):
+    """Function to select based on Genomic Estimated Breeding Value (GEBV).
+
+    :param GEBV_model: GEBV model to estimate the genomic breeding value.
+        It must return a single value for an individual, i.e. estimate a single trait.
+    :type GEBV_model: chromax.TraitModel
+
+    :return: the conventional genomic selection index function.
+    :rtype: Callable[[Population["n"]], Float[Array, "n"]]
+    """
+    def conventional_index_f(pop: Population["n"]) -> Float[Array, "n"]:
         gebv = GEBV_model(pop)
         assert gebv.shape[-1] == 1
         return gebv[..., 0]

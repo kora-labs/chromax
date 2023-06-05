@@ -4,9 +4,9 @@ Distributed computation
 We present here how to perform computation on multiple devices.
 
 Imagine to have at your disposal 4 GPUs and you want to distribute the workload on them. 
-There are two ways in doing so:
+There are two ways to do so:
 
-* Create 4 simulators, specifying different device for each one
+* Create 4 simulators, specifying a different device for each one
 * Use the `JAX pmap <https://jax.readthedocs.io/en/latest/_autosummary/jax.pmap.html>`_ function to wrap the functions you need.
 
 If memory is not an issue, the second method is the easiest one. In fact, you simply need divide your population in groups (i.e. divide the first axis) and distribute over the groups.
@@ -37,4 +37,22 @@ If memory is not an issue, the second method is the easiest one. In fact, you si
 
 
 If you want to perform random crosses or full diallel, grouping the population will change the semantics (the random crosses or the full diallel will be perfomed by group independently).
-In this case, you should use the function ``cross`` after generating the proper array of parents. 
+In this case, you should use the function ``cross`` after generating the proper array of parents.
+For example, to perform random crosses:
+
+.. code-block:: python
+
+    from chromax import Simulator
+    from chromax.sample_data import genome, genetic_map
+    import numpy as np
+    import jax
+    simulator = Simulator(genetic_map=genetic_map)
+    population = simulator.load_population(genome)
+    
+    random_indices = np.random.random_integers(0, len(population) - 1, size=(200, 2))
+    parents = population[random_indices]
+    parents = parents.reshape(4, 50, *parents.shape[1:])
+    pmap_cross = jax.pmap(simulator.cross,)
+    new_pop = pmap_cross(parents)
+    new_pop = new_pop.reshape(-1, *new_pop.shape[2:])
+
