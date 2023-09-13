@@ -1,0 +1,51 @@
+# Package ######################################################################
+
+[build-system]
+requires = ["setuptools >= 61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chromax"
+description = "Breeding simulator based on JAX"
+readme = "README.md"
+requires-python = ">= 3.8"
+authors = [{ name = "Omar G. Younis", email = "omar.younis98@gmail.com" }]
+license = { text = "BSD-3-Clause" }
+keywords = ["Breeding", "simulator", "JAX", "chromosome", "genetics", "bioinformatics",]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    'Intended Audience :: Science/Research',
+]
+dependencies = ["numpy", "pandas", "jax", "jaxlib", "jaxtyping"]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+testing = ["pytest"]
+
+[project.urls]
+Repository = "https://github.com/kora-labs/chromax"
+Documentation = "https://chromax.readthedocs.io/"
+"Bug Report" = "https://github.com/kora-labs/chromax/issues"
+
+[tool.setuptools]
+include-package-data = true
+
+
+# Linters and Test tools #######################################################
+
+[tool.black]
+safe = true
+
+[tool.isort]
+atomic = true
+profile = "black"
+src_paths = ["chromax", "tests"]
+extra_standard_library = ["typing_extensions"]
+indent = 4
+lines_after_imports = 2
+multi_line_output = 3

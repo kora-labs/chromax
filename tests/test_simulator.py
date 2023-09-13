@@ -1,11 +1,13 @@
+import warnings
+
+import jax
+import numpy as np
+import pandas as pd
+import pytest
+
 from chromax import Simulator
 from chromax.sample_data import genetic_map, genome
-import jax
 from mock_simulator import MockSimulator
-import numpy as np
-import pytest
-import warnings
-import pandas as pd
 
 
 @pytest.mark.parametrize("idx", [0, 1])
@@ -44,8 +46,7 @@ def test_equal_parents():
 
 def test_ad_hoc_cross():
     rec_vec = np.array(
-        [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
-        dtype=np.int8
+        [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0], dtype=np.int8
     )
 
     simulator = MockSimulator(recombination_vec=rec_vec)
@@ -97,7 +98,6 @@ def test_double_haploid():
     assert np.all(new_pop[..., 2] == new_pop[..., 3])
 
 
-
 def test_diallel():
     n_markers = 1000
     n_ind = 100
@@ -113,6 +113,7 @@ def test_diallel():
 
     new_pop = simulator.diallel(population, n_offspring=10)
     assert new_pop.shape == (n_ind * (n_ind - 1) // 2, 10, n_markers, ploidy)
+
 
 def test_select():
     n_markers = 1000
@@ -152,9 +153,7 @@ def test_random_crosses():
 
     n_offspring = 10
     new_pop = simulator.random_crosses(
-        population=population,
-        n_crosses=n_crosses,
-        n_offspring=n_offspring
+        population=population, n_crosses=n_crosses, n_offspring=n_offspring
     )
     assert new_pop.shape == (n_crosses, n_offspring, n_markers, ploidy)
 
@@ -167,7 +166,7 @@ def test_multi_trait():
         "Thousand Kernel Weight",
         "Yield",
         "Fusarium Head Blight",
-        "Spike Emergence Period"
+        "Spike Emergence Period",
     ]
     simulator = Simulator(genetic_map=genetic_map, trait_names=trait_names)
     population = simulator.load_population(genome)
@@ -179,9 +178,7 @@ def test_multi_trait():
 def test_device():
     local_devices = jax.local_devices()
     if len(local_devices) == 1:
-        warnings.warn(
-            "Device testing skipped because there is only one device."
-        )
+        warnings.warn("Device testing skipped because there is only one device.")
         return
 
     device = local_devices[1]
@@ -202,9 +199,7 @@ def test_device():
     dh_pop = simulator.double_haploid(diallel)
     assert dh_pop.device_buffer.device() == device
 
-    cross_indices = np.array([
-        [1, 5], [3, 10], [100, 2], [7, 93], [28, 41]
-    ])
+    cross_indices = np.array([[1, 5], [3, 10], [100, 2], [7, 93], [28, 41]])
     new_pop = simulator.cross(dh_pop[cross_indices])
     assert new_pop.device_buffer.device() == device
 
@@ -252,8 +247,4 @@ def test_phenotyping():
     assert len(phenotype) == n_ind
 
     with pytest.raises(ValueError):
-        simulator.phenotype(
-            population,
-            num_environments=8,
-            environments=environments
-        )
+        simulator.phenotype(population, num_environments=8, environments=environments)

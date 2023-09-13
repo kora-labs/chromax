@@ -1,9 +1,12 @@
+"""Utility module with common index functions."""
 from math import ceil
-import numpy as np
-from chromax.trait_model import TraitModel
 from typing import Callable
+
+import numpy as np
+from jaxtyping import Array, Float
+
+from chromax.trait_model import TraitModel
 from chromax.typing import Population
-from jaxtyping import Float, Array
 
 
 def phenotype_index(simulator, environments: np.ndarray) -> Callable:
@@ -11,16 +14,15 @@ def phenotype_index(simulator, environments: np.ndarray) -> Callable:
 
     :param simulator: chromax simulator instance to use for phenotyping simulation.
     :type simulator: chromax.Simulator
-    :param environments: environments created using `create_environments` function from the simulator.
+    :param environments: environments created using `create_environments` method from the simulator.
 
     :return: the phenotyping index function to use for selection.
     :rtype: Callable[[Population["n"]], Float[Array, "n"]]
     """
+
     def phenotype_index_f(population: Population["n"]) -> Float[Array, "n"]:
         phenotype = simulator.phenotype(
-            population,
-            environments=environments,
-            raw_array=True
+            population, environments=environments, raw_array=True
         )
         return phenotype[..., 0]
 
@@ -28,12 +30,13 @@ def phenotype_index(simulator, environments: np.ndarray) -> Callable:
 
 
 def visual_selection(simulator, noise_factor: int = 1, seed: int = None) -> Callable:
-    """Function to select based on visual selection. 
-    Pratically, this is similar to phenotyping but with more noise.
+    """Function to select based on visual selection.
+
+    Practically, this is similar to phenotyping but with more noise.
 
     :param simulator: chromax simulator instance to use for phenotyping simulation.
     :type simulator: chromax.Simulator
-    :param noise_factor: variance ratio between the phenotype and artificial noise added 
+    :param noise_factor: variance ratio between the phenotype and artificial noise added
         to simulate visual selection inaccuracy.
     :type noise_factor: int
     :param seed: random seed for reproducibility.
@@ -63,6 +66,7 @@ def conventional_index(GEBV_model: TraitModel):
     :return: the conventional genomic selection index function.
     :rtype: Callable[[Population["n"]], Float[Array, "n"]]
     """
+
     def conventional_index_f(pop: Population["n"]) -> Float[Array, "n"]:
         gebv = GEBV_model(pop)
         assert gebv.shape[-1] == 1
@@ -80,6 +84,7 @@ def _poor_conventional_indices(GEBV_model, pop, F):
 
 
 def optimal_haploid_value(GEBV_model, F=0, B=None, chr_lens=None):
+    """Method implementing Optimal Haploid Value (OHV) index function."""
 
     def optimal_haploid_value_f(pop):
         OHP = optimal_haploid_pop(GEBV_model, pop, B, chr_lens)
@@ -88,7 +93,7 @@ def optimal_haploid_value(GEBV_model, F=0, B=None, chr_lens=None):
 
         if F > 0:
             remove_indices = _poor_conventional_indices(GEBV_model, pop, F)
-            OHV[remove_indices] = -float('inf')
+            OHV[remove_indices] = -float("inf")
 
         return OHV
 
@@ -96,6 +101,7 @@ def optimal_haploid_value(GEBV_model, F=0, B=None, chr_lens=None):
 
 
 def optimal_haploid_pop(GEBV_model, population, B=None, chr_lens=None):
+    """Function returning the optimal haploid of a population."""
     if B is None:
         return _optimal_haploid_pop(GEBV_model, population)
     else:
@@ -104,7 +110,7 @@ def optimal_haploid_pop(GEBV_model, population, B=None, chr_lens=None):
 
 
 def _optimal_haploid_pop_B(GEBV_model, population, B, chr_lens):
-    OHP = np.empty((population.shape[0], population.shape[1]), dtype='bool')
+    OHP = np.empty((population.shape[0], population.shape[1]), dtype="bool")
 
     start_idx = 0
     for chr_length in chr_lens:
@@ -114,9 +120,7 @@ def _optimal_haploid_pop_B(GEBV_model, population, B, chr_lens):
             end_block = min(start_idx + block_length, end_chr)
             pop_slice = population[:, start_idx:end_block]
             effect_slice = GEBV_model.marker_effects[start_idx:end_block]
-            block_gebv = np.einsum(
-                "nmd,me->nd", pop_slice, effect_slice
-            )
+            block_gebv = np.einsum("nml,me->nl", pop_slice, effect_slice)
             best_blocks = np.argmax(block_gebv, axis=-1)
             OHP[:, start_idx:end_block] = np.take_along_axis(
                 pop_slice, best_blocks[:, None, None], axis=2
@@ -130,7 +134,7 @@ def _optimal_haploid_pop_B(GEBV_model, population, B, chr_lens):
 
 def _optimal_haploid_pop(GEBV_model, population):
     optimal_haploid_pop = np.empty(
-        (population.shape[0], population.shape[1]), dtype='bool'
+        (population.shape[0], population.shape[1]), dtype="bool"
     )
 
     positive_mask = GEBV_model.positive_mask.squeeze()
@@ -146,13 +150,14 @@ def _optimal_haploid_pop(GEBV_model, population):
 
 
 def optimal_population_value(GEBV_model, n, F=0, B=None, chr_lens=None):
+    """Method implementing Optimal Population Value (OPV) index function."""
 
     def optimal_population_value_f(population):
         indices = np.arange(len(population))
         remove_indices = _poor_conventional_indices(GEBV_model, population, F)
         indices = np.delete(indices, remove_indices)
 
-        output = np.zeros(len(population), dtype='bool')
+        output = np.zeros(len(population), dtype="bool")
         positive_mask = GEBV_model.marker_effects[:, 0] > 0
         current_set = ~positive_mask
         G = optimal_haploid_pop(GEBV_model, population[indices], B, chr_lens)

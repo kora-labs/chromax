@@ -1,9 +1,13 @@
+"""Functional module."""
+from functools import partial
 from typing import Callable
+
 import jax
 import jax.numpy as jnp
 from jaxtyping import Array, Float
+
 from .typing import N_MARKERS, Haploid, Individual, Parents, Population
-from functools import partial
+
 
 @jax.jit
 def cross(
@@ -14,7 +18,7 @@ def cross(
     """Main function that computes crosses from a list of parents.
 
     :param parents: parents to compute the cross. The shape of
-        the parents is (n, 2, m, d), where n is the number of parents, 
+        the parents is (n, 2, m, d), where n is the number of parents,
         m is the number of markers, and d is the ploidy.
     :type parents: ndarray
     :param recombination_vec: array of m probabilities.
@@ -55,20 +59,16 @@ def cross(
 def _cross(
     parent: Individual,
     recombination_vec: Float[Array, N_MARKERS],
-    random_key: jax.random.PRNGKeyArray
+    random_key: jax.random.PRNGKeyArray,
 ) -> Haploid:
-    return _meiosis(
-        parent,
-        recombination_vec,
-        random_key
-    )
+    return _meiosis(parent, recombination_vec, random_key)
 
 
 def double_haploid(
     population: Population["n"],
     n_offspring: int,
     recombination_vec: Float[Array, N_MARKERS],
-    random_key: jax.random.PRNGKeyArray
+    random_key: jax.random.PRNGKeyArray,
 ) -> Population["n n_offspring"]:
     """Computes the double haploid of the input population.
 
@@ -85,7 +85,7 @@ def double_haploid(
     :return: output population of shape (n, n_offspring, m, d).
         This population will be homozygote.
     :rtype: ndarray
-    
+
     :Example:
         >>> from chromax import functional
         >>> import numpy as np
@@ -103,8 +103,7 @@ def double_haploid(
     """
     population = population.reshape(*population.shape[:2], -1, 2)
     keys = jax.random.split(
-        random_key, 
-        num=len(population) * n_offspring * population.shape[2]
+        random_key, num=len(population) * n_offspring * population.shape[2]
     ).reshape(len(population), n_offspring, population.shape[2], 2)
     haploids = _double_haploid(population, recombination_vec, keys)
     dh_pop = jnp.broadcast_to(haploids[..., None], shape=(*haploids.shape, 2))
@@ -117,32 +116,24 @@ def double_haploid(
 def _double_haploid(
     individual: Individual,
     recombination_vec: Float[Array, N_MARKERS],
-    random_key: jax.random.PRNGKeyArray
+    random_key: jax.random.PRNGKeyArray,
 ) -> Haploid:
-    return _meiosis(
-        individual,
-        recombination_vec,
-        random_key
-    )
+    return _meiosis(individual, recombination_vec, random_key)
 
 
 @jax.jit
-@partial(jax.vmap, in_axes=(1, None, 0), out_axes=1) # parallelize pair of chromosomes
+@partial(jax.vmap, in_axes=(1, None, 0), out_axes=1)  # parallelize pair of chromosomes
 def _meiosis(
     individual: Individual,
     recombination_vec: Float[Array, N_MARKERS],
-    random_key: jax.random.PRNGKeyArray
+    random_key: jax.random.PRNGKeyArray,
 ) -> Haploid:
     samples = jax.random.uniform(random_key, shape=recombination_vec.shape)
     rec_sites = samples < recombination_vec
     crossover_mask = jax.lax.associative_scan(jnp.logical_xor, rec_sites)
 
     crossover_mask = crossover_mask.astype(jnp.int8)
-    haploid = jnp.take_along_axis(
-        individual,
-        crossover_mask[:, None],
-        axis=-1
-    )
+    haploid = jnp.take_along_axis(individual, crossover_mask[:, None], axis=-1)
 
     return haploid.squeeze()
 
@@ -150,7 +141,7 @@ def _meiosis(
 def select(
     population: Population["n"],
     k: int,
-    f_index: Callable[[Population["n"]], Float[Array, "n"]]
+    f_index: Callable[[Population["n"]], Float[Array, "n"]],
 ) -> Population["k"]:
     """Function to select individuals based on their score (index).
 
@@ -160,7 +151,7 @@ def select(
     :type k: int
     :param f_index: function that computes a score for each individual.
         The function accepts as input a population, i.e. and array of shape
-        (n, m, 2) and returns an arrray of n float number.
+        (n, m, 2) and returns an array of n float number.
     :type f_index: Callable
 
     :return: output population of (k, m, d)
@@ -181,7 +172,6 @@ def select(
         >>> f2.shape
         (10, 1000, 2)
     """
-
     indices = f_index(population)
     _, best_pop = jax.lax.top_k(indices, k)
     return population[best_pop, :, :]

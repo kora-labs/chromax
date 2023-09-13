@@ -84,5 +84,5 @@ For example:
         axis=0
     )
 
-And then repeting the breeding scheme using the `next_cycle_f0` as founder population.
+And then repeating the breeding scheme using the `next_cycle_f0` as founder population.
 The code for the breeding scheme can be found `here <https://github.com/kora-labs/chromax/blob/master/examples/wheat_bp.py>`_.

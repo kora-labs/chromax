@@ -36,7 +36,7 @@ If memory is not an issue, the second method is the easiest one. In fact, you si
 
 
 
-If you want to perform random crosses or full diallel, grouping the population will change the semantics (the random crosses or the full diallel will be perfomed by group independently).
+If you want to perform random crosses or full diallel, grouping the population will change the semantics (the random crosses or the full diallel will be performed by group independently).
 In this case, you should use the function ``cross`` after generating the proper array of parents.
 For example, to perform random crosses:
 

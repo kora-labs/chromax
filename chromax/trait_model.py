@@ -1,33 +1,42 @@
+"""Module containing the trait model."""
 from typing import Tuple
-import jax.numpy as jnp
+
 import jax
+import jax.numpy as jnp
 from jaxtyping import Array, Bool, Float
+
 from .typing import Population
 
 
 class TraitModel:
+    """Breeding simulator class. It can perform the most common operation of a breeding program.
+
+    :param marker_effects: linear regressor weights for the traits.
+    :type marker_effects: Array of shape (m, t), where t is the number of traits.
+    :param mean: linear regressor offsets for each trait.
+    :type mean: 1-dimensional array of length t or a float number.
+    :param device: the device on which compute the traits estimation.
+        If not specified, the default device will be chosen.
+    :type device: XLA Device
+    """
 
     def __init__(
         self,
         marker_effects: Float[Array, "m traits"],
         mean: Float[Array, "#traits"] = 0,
-        device=None
+        device=None,
     ) -> None:
+        """Initialize a trait model."""
         self.device = device
-        self.marker_effects = jax.device_put(
-            marker_effects,
-            device=self.device
-        )
+        self.marker_effects = jax.device_put(marker_effects, device=self.device)
         self.mean = jax.device_put(mean, device=self.device)
         self.n_traits = marker_effects.shape[1]
 
         props = _effect_properties(self.marker_effects)
         self.positive_mask, self.max, self.min, self.mean, self.var = props
 
-    def __call__(
-        self,
-        population: Population["n"]
-    ) -> Float[Array, "n traits"]:
+    def __call__(self, population: Population["n"]) -> Float[Array, "n traits"]:
+        """Estimate the traits for the given population."""
         return _call(population, self.marker_effects, self.mean)
 
 
@@ -35,7 +44,7 @@ class TraitModel:
 def _call(
     population: Population["n"],
     marker_effects: Float[Array, "m traits"],
-    mean: Float[Array, "#traits"]
+    mean: Float[Array, "#traits"],
 ) -> Float[Array, "n traits"]:
     monoploidy = population.sum(axis=-1, dtype=jnp.int8)
     return jnp.dot(monoploidy, marker_effects) + mean

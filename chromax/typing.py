@@ -1,4 +1,6 @@
+"""Utility module for typing."""
 from jaxtyping import Array, Bool
+
 
 N_MARKERS = "m"
 DIPLOID_SHAPE = N_MARKERS + " d"
@@ -13,6 +15,8 @@ class _MetaPopulation(type):
 
 
 class Population(metaclass=_MetaPopulation):
+    """Typing class representing a population of n individuals."""
+
     pass
 
 
@@ -22,4 +26,6 @@ class _MetaParents(type):
 
 
 class Parents(metaclass=_MetaParents):
+    """Typing class representing a pair of individuals."""
+
     pass

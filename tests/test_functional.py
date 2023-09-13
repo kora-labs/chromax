@@ -1,9 +1,10 @@
+import jax
+import numpy as np
+import pytest
+
+from chromax import functional
 from chromax.index_functions import conventional_index
 from chromax.trait_model import TraitModel
-import numpy as np
-import jax
-from chromax import functional
-import pytest
 
 
 @pytest.mark.parametrize("idx", [0, 1])

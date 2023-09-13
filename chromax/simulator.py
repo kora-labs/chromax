@@ -1,27 +1,30 @@
+"""Module containing simulator class."""
+import logging
+import random
 from pathlib import Path
 from typing import Callable, List, Optional, Union
-import pandas as pd
-from . import functional
-from .trait_model import TraitModel
-from .typing import Parents, Population
-from .index_functions import conventional_index
-import numpy as np
+
 import jax
 import jax.numpy as jnp
+import numpy as np
+import pandas as pd
 from jax._src.lib import xla_client as xc
 from jaxtyping import Array, Float, Int
-import random
-import logging
+
+from . import functional
+from .index_functions import conventional_index
+from .trait_model import TraitModel
+from .typing import Parents, Population
 
 
 class Simulator:
     """Breeding simulator class. It can perform the most common operation of a breeding program.
 
     :param genetic_map: the path, or dataframe, containing the genetic map.
-        It needs to have all the columns specified in trait_names, `CHR.PHYS` 
+        It needs to have all the columns specified in trait_names, `CHR.PHYS`
         (with the name of the marker chromosome), and one between `cM` or `RecombRate`.
     :type genetic_map: Path or DataFrame
-    :param trait_names: column names in the genetic_map. 
+    :param trait_names: column names in the genetic_map.
         The values of the columns are the marker effects on the trait for each marker.
         The default value is `Yield`.
     :type trait_names: List of strings
@@ -31,7 +34,7 @@ class Simulator:
     :param position_column: name of the column containing the position in cM of the marker.
         The default value is `cM`.
     :type position_column: str
-    :param recombination_column: name of the column containing the probability that a 
+    :param recombination_column: name of the column containing the probability that a
         recombination happens before the current marker and after the previous one.
         The default value is `RecombRate`.
     :type recombination_column: str
@@ -40,10 +43,10 @@ class Simulator:
     :type h2: array of float
     :param seed: the random seed for reproducibility.
     :type seed: int
-    :param device: the device on which to run the simulations. 
+    :param device: the device on which to run the simulations.
         If not specified, the default device will be chosen.
     :type device: XLA Device
-    :param backend: the backend of the device. 
+    :param backend: the backend of the device.
         Common choices are `gpu`, `cpu` or `tpu`.
     :type backend: str or XLA client
 
@@ -66,8 +69,9 @@ class Simulator:
         h2: Optional[np.ndarray] = None,
         seed: Optional[int] = None,
         device: xc.Device = None,
-        backend: Union[str, xc._xla.Client] = None
+        backend: Union[str, xc._xla.Client] = None,
     ):
+        """Initialization method. See class docstring for information about parameters."""
         self.random_key = None
         if seed is None:
             seed = random.randint(0, 2**32)
@@ -82,9 +86,7 @@ class Simulator:
             assert len(matched_devices) <= 1
             if len(matched_devices) == 0:
                 print(jax.devices(), flush=True)
-                logging.warning(
-                    "No device with id: %i. Using the default one.", device
-                )
+                logging.warning("No device with id: %i. Using the default one.", device)
                 device = jax.local_devices(backend=backend)[0]
             else:
                 device = matched_devices[0]
@@ -94,7 +96,7 @@ class Simulator:
             genetic_map = pd.read_table(genetic_map, sep="\t")
         if trait_names is None:
             other_col = {chr_column, position_column, recombination_column}
-            trait_names = genetic_map.columns.drop(other_col, errors='ignore')
+            trait_names = genetic_map.columns.drop(other_col, errors="ignore")
         self.trait_names = trait_names
 
         self.n_markers = len(genetic_map)
@@ -103,32 +105,35 @@ class Simulator:
 
         mrk_effects = genetic_map[self.trait_names]
         self.GEBV_model = TraitModel(
-            marker_effects=mrk_effects.to_numpy(dtype=np.float32),
-            device=self.device
+            marker_effects=mrk_effects.to_numpy(dtype=np.float32), device=self.device
         )
 
         if h2 is None:
             h2 = np.full((len(self.trait_names),), 0.5)
         h2 = np.asarray(h2)
         self.random_key, split_key = jax.random.split(self.random_key)
-        env_effects = jax.random.normal(split_key, shape=(self.n_markers, len(self.trait_names)))
+        env_effects = jax.random.normal(
+            split_key, shape=(self.n_markers, len(self.trait_names))
+        )
         target_vars = (1 - h2) / h2 * self.GEBV_model.var
         env_effects *= np.sqrt(2 * target_vars / self.n_markers)
         self.GxE_model = TraitModel(
-            marker_effects=env_effects,
-            mean=1,
-            device=self.device
+            marker_effects=env_effects, mean=1, device=self.device
         )
 
         if recombination_column in genetic_map.columns:
-            recombination_vec = genetic_map[recombination_column].to_numpy(dtype=np.float32)
+            recombination_vec = genetic_map[recombination_column].to_numpy(
+                dtype=np.float32
+            )
             # change semantic to "recombine now" instead of "recombine after"
             recombination_vec[1:] = recombination_vec[:-1]
             self.cM = np.zeros(self.n_markers, dtype=np.float32)
             start_idx = 0
             for chr_len in self.chr_lens:
                 end_idx = start_idx + chr_len
-                self.cM[start_idx + 1:end_idx] = recombination_vec[start_idx + 1:end_idx].cumsum() * 100
+                self.cM[start_idx + 1 : end_idx] = (
+                    recombination_vec[start_idx + 1 : end_idx].cumsum() * 100
+                )
                 start_idx = end_idx
 
         elif position_column in genetic_map.columns:
@@ -137,25 +142,23 @@ class Simulator:
             start_idx = 0
             for chr_len in self.chr_lens:
                 end_idx = start_idx + chr_len
-                recombination_vec[start_idx + 1:end_idx] = self.cM[start_idx + 1:end_idx] - self.cM[start_idx:end_idx - 1]
+                recombination_vec[start_idx + 1 : end_idx] = (
+                    self.cM[start_idx + 1 : end_idx] - self.cM[start_idx : end_idx - 1]
+                )
                 recombination_vec /= 100
         else:
             raise ValueError(
                 f"One between {recombination_column} and {position_column} must be specified"
             )
 
-        first_mrk_map = np.zeros(len(chr_map), dtype='bool')
+        first_mrk_map = np.zeros(len(chr_map), dtype="bool")
         first_mrk_map[1:] = chr_map.iloc[1:].values != chr_map.iloc[:-1].values
         first_mrk_map[0] = True
         recombination_vec[first_mrk_map] = 0.5  # first equally likely
-        self.recombination_vec = jax.device_put(
-            recombination_vec,
-            device=self.device
-        )
+        self.recombination_vec = jax.device_put(recombination_vec, device=self.device)
 
     def set_seed(self, seed: int):
-        """
-        Set random seed for reproducibility.
+        """Set random seed for reproducibility.
 
         :param seed: random seed.
         :type seed: int
@@ -172,7 +175,7 @@ class Simulator:
             n is the number of individual, m is the total number of marker,
             and d is the diploidy of the population.
         :rtype: ndarray
-        
+
         :Example:
             >>> from chromax import Simulator, sample_data
             >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
@@ -204,14 +207,14 @@ class Simulator:
         """Main function that computes crosses from a list of parents.
 
         :param parents: parents to compute the cross. The shape of
-            the parents is (n, 2, m, d), where n is the number of parents, 
+            the parents is (n, 2, m, d), where n is the number of parents,
             m is the number of markers, and d is the ploidy.
         :type parents: ndarray
 
-        
+
         :return: offspring population of shape (n, m, d).
         :rtype: ndarray
-        
+
         :Example:
             >>> from chromax import Simulator, sample_data
             >>> import numpy as np
@@ -232,14 +235,13 @@ class Simulator:
 
     @property
     def differentiable_cross_func(self) -> Callable:
-        """Experimental features that return a differentiable version
-        of the cross function.
+        """Experimental features that return a differentiable version of the cross function.
 
         The differentiable crossing function takes as input:
          - population (array): starting population from which performing the crosses.
             The shape of the population is (n, m, d).
          - cross_weights (array): Array of shape (l, n, d). It is used to compute
-            l crosses, starting from a weighted average of the n possible parents. 
+            l crosses, starting from a weighted average of the n possible parents.
             When the n-axis has all zeros except of a single element equals to one,
             this function is equivalent to the cross function.
          - random_key (JAX random key): random key used for recombination sampling.
@@ -264,12 +266,7 @@ class Simulator:
             >>> grad_value.shape
             (10, 371, 2)
         """
-
-        cross_haplo = jax.vmap(
-            functional._meiosis,
-            in_axes=(None, None, 0),
-            out_axes=1
-        )
+        cross_haplo = jax.vmap(functional._meiosis, in_axes=(None, None, 0), out_axes=1)
         cross_individual = jax.vmap(cross_haplo, in_axes=(0, None, 0))
         cross_pop = jax.vmap(cross_individual, in_axes=(None, None, 0))
 
@@ -277,7 +274,7 @@ class Simulator:
         def diff_cross_f(
             population: Population["n"],
             cross_weights: Float[Array, "m n 2"],
-            random_key: jax.random.PRNGKeyArray
+            random_key: jax.random.PRNGKeyArray,
         ) -> Population["m"]:
             population = population.reshape(*population.shape[:-1], -1, 2)
             keys_shape = len(cross_weights), len(population), 2, population.shape[-2]
@@ -290,9 +287,7 @@ class Simulator:
         return diff_cross_f
 
     def double_haploid(
-        self,
-        population: Population["n"],
-        n_offspring: int = 1
+        self, population: Population["n"], n_offspring: int = 1
     ) -> Population["n n_offspring"]:
         """Computes the double haploid of the input population.
 
@@ -316,10 +311,7 @@ class Simulator:
         """
         self.random_key, split_key = jax.random.split(self.random_key)
         dh = functional.double_haploid(
-            population,
-            n_offspring,
-            self.recombination_vec,
-            split_key
+            population, n_offspring, self.recombination_vec, split_key
         )
 
         if n_offspring == 1:
@@ -327,12 +319,9 @@ class Simulator:
         return dh
 
     def diallel(
-        self,
-        population: Population["n"],
-        n_offspring: int = 1
+        self, population: Population["n"], n_offspring: int = 1
     ) -> Population["n*(n-1)/2 n_offspring"]:
-        """Diallel crossing function, i.e. crossing between every possible
-        couple, except self-crossing.
+        """Diallel crossing function (crossing between every possible couple) except self-crossing.
 
         :param population: input population of shape (n, m, d).
         :type population: ndarray
@@ -352,7 +341,6 @@ class Simulator:
             >>> f2.shape
             (45, 10, 9839, 2)
         """
-
         if n_offspring < 1:
             raise ValueError("n_offspring must be higher or equal to 1")
 
@@ -365,20 +353,14 @@ class Simulator:
             out = out.squeeze(1)
         return out
 
-    def _diallel_indices(
-        self,
-        indices: Int[Array, "n"]
-    ) -> Int[Array, "n*(n-1)/2"]:
+    def _diallel_indices(self, indices: Int[Array, "n"]) -> Int[Array, "n*(n-1)/2"]:
         triu_indices = jnp.triu_indices(len(indices), k=1)
         mesh1 = indices[triu_indices[0]]
         mesh2 = indices[triu_indices[1]]
         return jnp.stack([mesh1, mesh2], axis=1)
 
     def random_crosses(
-        self,
-        population: Population["n"],
-        n_crosses: int,
-        n_offspring: int = 1
+        self, population: Population["n"], n_crosses: int, n_offspring: int = 1
     ) -> Population["n_crosses n_offspring"]:
         """Computes random crosses on a population.
 
@@ -386,7 +368,7 @@ class Simulator:
         :type population: ndarray
         :param n_crosses: number of random crosses to perform.
         :type n_crosses: int
-        :param n_offspring: number of offspring per cross. 
+        :param n_offspring: number of offspring per cross.
             The default value is 1.
         :type n_offspring: int
 
@@ -408,10 +390,7 @@ class Simulator:
 
         self.random_key, split_key = jax.random.split(self.random_key)
         random_select_idx = jax.random.choice(
-            split_key,
-            len(diallel_indices),
-            shape=(n_crosses,),
-            replace=False
+            split_key, len(diallel_indices), shape=(n_crosses,), replace=False
         )
         cross_indices = diallel_indices[random_select_idx]
 
@@ -426,22 +405,22 @@ class Simulator:
         self,
         population: Population["_g n"],
         k: int,
-        f_index: Optional[Callable[[Population["n"]], Float[Array, "n"]]] = None
+        f_index: Optional[Callable[[Population["n"]], Float[Array, "n"]]] = None,
     ) -> Population["_g k"]:
         """Function to select individuals based on their score (index).
 
-        :param population: input population of shape (n, m, d), 
+        :param population: input population of shape (n, m, d),
             or shape (g, n, m, d), to select k individual from each group population group g.
         :type population: ndarray
         :param k: number of individual to select.
         :type k: int
         :param f_index: function that computes a score from each individual.
             The function accepts as input the population, i.e. and array of shape
-            (n, m, d) and returns a n float numbers. The default f_index is the conventional index, 
+            (n, m, d) and returns a n float numbers. The default f_index is the conventional index,
             i.e. the sum of the marker effects masked with the SNPs from the genetic_map.
         :type f_index: Callable
 
-        :return: output population of shape (k, m, d) or (g, k, m, d), 
+        :return: output population of shape (k, m, d) or (g, k, m, d),
             depending on the input population.
         :rtype: ndarray
 
@@ -453,7 +432,7 @@ class Simulator:
             (371, [8.223844])
             >>> f2 = simulator.select(f1, k=20)
             >>> len(f2), simulator.GEBV(f2).mean().values
-            (20, [14.595136])    
+            (20, [14.595136])
         """
         if f_index is None:
             f_index = conventional_index(self.GEBV_model)
@@ -463,23 +442,21 @@ class Simulator:
         elif len(population.shape) == 4:
             select_f = jax.vmap(functional.select, in_axes=(0, None, None))
         else:
-            raise ValueError(f"Unexpected shape {population.shape} for input population")
+            raise ValueError(
+                f"Unexpected shape {population.shape} for input population"
+            )
 
         return select_f(population, k, f_index)
 
     def GEBV(
-        self,
-        population: Population["n"],
-        *,
-        raw_array: bool = False
+        self, population: Population["n"], *, raw_array: bool = False
     ) -> Union[pd.DataFrame, np.ndarray]:
-        """Computes the Genomic Estimated Breeding Values using the
-        marker effects from the genetic_map.
+        """Computes the Genomic Estimated Breeding Values using the data from the genetic_map.
 
         :param population: input population of shape (n, m, d).
         :type population: ndarray
         :param raw_array: whether to return a raw array or a DataFrame.
-            Deafult value is False.
+            Default value is False.
         :type raw_array: bool
 
         :return: a DataFrame (or array) with n rows and a column for each trait.
@@ -506,10 +483,10 @@ class Simulator:
         return GEBV
 
     def create_environments(
-        self,
-        num_environments: int
+        self, num_environments: int
     ) -> Float[Array, "num_environments"]:
         """Create environments to phenotype the population.
+
         In practice, it generates random numbers from a normal distribution.
 
         :param num_environments: number of environments to create.
@@ -531,10 +508,11 @@ class Simulator:
         *,
         num_environments: Optional[int] = None,
         environments: Optional[np.ndarray] = None,
-        raw_array: bool = False
+        raw_array: bool = False,
     ) -> Union[pd.DataFrame, np.ndarray]:
         """Simulates the phenotype of a population.
-        This uses the Genotype-by-Environment model described in `AlphaSimR 
+
+        This uses the Genotype-by-Environment model described in `AlphaSimR
         <https://cran.r-project.org/web/packages/AlphaSimR/vignettes/traits.pdf>`_.
 
         :param population: input population of shape (n, m, d)
@@ -544,17 +522,17 @@ class Simulator:
         :type num_environments: int
         :param environments: environments to test the population. Each environment
             must be represented by a floating number in the range (-1, 1).
-            When drawing new environments use normal distribution to mantain
+            When drawing new environments use normal distribution to maintain
             heretability semantics.
         :type environments: ndarray
         :param raw_array: whether to return a raw array or a DataFrame.
-            Deafult value is False.
+            Default value is False.
         :type raw_array: bool
 
         :return: a DataFrame (or array) with n rows and a column for each trait.
             It contains the simulated phenotype for each individual.
         :rtype: DataFrame or ndarray
-        
+
         :Example:
             >>> from chromax import Simulator, sample_data
             >>> simulator = Simulator(genetic_map=sample_data.genetic_map, seed=42)
@@ -586,18 +564,16 @@ class Simulator:
             phenotype = pd.DataFrame(phenotype, columns=self.trait_names)
         return phenotype
 
-    def corrcoef(
-        self,
-        population: Population["n"]
-    ) -> Float[Array, "n"]:
+    def corrcoef(self, population: Population["n"]) -> Float[Array, "n"]:
         """Computes the correlation coefficient of the population against its centroid.
+
         It can be used as an indicator of variance in the population.
 
         :param population: input population of shape (n, m, d)
         :type population: ndarray
 
         :return: vector of length n, containing the correlation coefficient
-            of each individual againts the average of the population.
+            of each individual against the average of the population.
         :rtype: ndarray
 
         :Example:
