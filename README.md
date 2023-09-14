@@ -1,6 +1,6 @@
 # ChromaX
 
-ChromaX is a breeding simulator for large-scale experiments. It is based on JAX and can run smoothly on multiple devices. We designed this library for researchers and breeders with the scope of guiding the design choices of breeding programs.
+ChromaX is a breeding simulator for large-scale experiments. It is based on [JAX](https://github.com/google/jax) and can run smoothly on multiple devices. We designed this library for researchers and breeders with the scope of guiding the design choices of breeding programs.
 
 ## Installation
 
