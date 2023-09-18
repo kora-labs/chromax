@@ -43,8 +43,8 @@ class Simulator:
     :type h2: array of float
     :param seed: the random seed for reproducibility.
     :type seed: int
-    :param device: the device on which to run the simulations.
-        If not specified, the default device will be chosen.
+    :param device: the device for computing simulations. It will be automatically selected if not
+        specified; by default to the first available GPU or TPU, or the CPU if neither is present.
     :type device: XLA Device
     :param backend: the backend of the device.
         Common choices are `gpu`, `cpu` or `tpu`.

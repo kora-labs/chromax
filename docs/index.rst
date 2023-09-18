@@ -9,7 +9,12 @@ ChromaX: a fast and scalable breeding program simulator
 ChromaX is a Python library that enables the simulation of genetic recombination, genomic estimated
 breeding value calculations, and selection processes.
 The library is based on `JAX <https://jax.readthedocs.io>`_ to exploit parallelization.
+It can smoothly operate on CPU, GPU (NVIDIA, AMD, and Intel), or TPU.
 
+.. note::
+
+  At the moment, JAX, thus ChromaX supports Apple silicon GPU exclusively through the Metal plug-in, which is still in the experimental release phase.
+  For additional information, please refer to `Apple's JAX on Metal documentation <https://developer.apple.com/metal/jax/>`_.
 
 Installation
 ===================================
