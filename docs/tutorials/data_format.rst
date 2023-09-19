@@ -7,8 +7,13 @@ We explain here how we represent genomes in silico and how to format the genetic
 Genome data
 ------------------
 
-We represent an individual using a boolean array with a shape of ``(m, d)``, where `m` corresponds to the total number of markers, and `d`` represents the ploidy. It's important to note that we don't differentiate the various chromosomes on separate axes, but we do distinguish the haploids.
+We represent an individual using a boolean array with a shape of ``(m, d)``, where `m` corresponds to the total number of markers, and `d` represents the ploidy. Thus, the genome data of a population is an array of shape ``(n, m, d)``, where `n` is the size of the population. It's important to note that we don't differentiate the various chromosomes on separate axes, but we do distinguish the haploids.
 
+.. image:: pop_array.pdf
+    :width: 400px
+    :align: center
+
+We load and save the genome data using the homonymous NumPy functions. As a result, the file format of the genome data follows the NPY format; for more information please consult the `NumPy's documentation <https://numpy.org/doc/stable/reference/generated/numpy.lib.format.html#module-numpy.lib.format>`_. 
 
 
 Genetic linkage map
