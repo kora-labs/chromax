@@ -26,6 +26,7 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 testing = ["pytest"]
+docs = ["sphinx-rtd-theme"]
 
 [project.urls]
 Repository = "https://github.com/kora-labs/chromax"
