@@ -32,7 +32,7 @@ class TraitModel:
         self.offset = jax.device_put(offset, device=self.device)
         self.n_traits = marker_effects.shape[1]
 
-        props = _effect_properties(self.marker_effects)
+        props = _effect_properties(self.marker_effects, offset)
         self.positive_mask, self.max, self.min, self.mean, self.var = props
 
     def __call__(self, population: Population["n"]) -> Float[Array, "n traits"]:
@@ -52,8 +52,7 @@ def _call(
 
 @jax.jit
 def _effect_properties(
-    marker_effects: Float[Array, "m traits"],
-    offset: Float[Array, "#traits"]
+    marker_effects: Float[Array, "m traits"], offset: Float[Array, "#traits"]
 ) -> Tuple[Bool[Array, "m"], float, float, float, float]:
     positive_mask = marker_effects > 0
 
