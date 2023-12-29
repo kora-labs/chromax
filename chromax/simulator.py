@@ -104,8 +104,10 @@ class Simulator:
         self.chr_lens = chr_map.groupby(chr_map).count().values
 
         mrk_effects = genetic_map[self.trait_names]
+        offset = mrk_effects.mean()
+        mrk_effects -= offset
         self.GEBV_model = TraitModel(
-            marker_effects=mrk_effects.to_numpy(dtype=np.float32), device=self.device
+            marker_effects=mrk_effects.to_numpy(dtype=np.float32), offset=offset.to_numpy(dtype=np.float32),device=self.device
         )
 
         if h2 is None:
