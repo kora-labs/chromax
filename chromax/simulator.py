@@ -54,7 +54,7 @@ class Simulator:
         >>> from chromax import Simulator, sample_data
         >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
         >>> f1 = simulator.load_population(sample_data.genome)
-        >>> f2 = simulator.random_crosses(f1, n_crosses=10, n_offspring=20)
+        >>> f2, _ = simulator.random_crosses(f1, n_crosses=10, n_offspring=20)
         >>> f2.shape
         (10, 20, 9839, 2)
     """
@@ -198,7 +198,7 @@ class Simulator:
             >>> from chromax import Simulator, sample_data
             >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
             >>> f1 = simulator.load_population(sample_data.genome)
-            >>> f2 = simulator.random_crosses(f1, n_crosses=10, n_offspring=20)
+            >>> f2, _ = simulator.random_crosses(f1, n_crosses=10, n_offspring=20)
             >>> simulator.save_population(f2, "pop_file")
         """
         np.save(file_name, population, allow_pickle=False)
@@ -372,16 +372,19 @@ class Simulator:
             The default value is 1.
         :type n_offspring: int
 
-        :return: output population of shape (n_crosses, n_offspring, m, d).
-        :rtype: ndarray
+        :return: output population of shape (n_crosses, n_offspring, m, d)
+            and parent indices of shape (n_crosses, 2) of performed crosses.
+        :rtype: tuple of two ndarrays
 
         :Example:
             >>> from chromax import Simulator, sample_data
             >>> simulator = Simulator(genetic_map=sample_data.genetic_map)
             >>> f1 = simulator.load_population(sample_data.genome)
-            >>> f2 = simulator.random_crosses(f1, 100, n_offspring=10)
+            >>> f2, parent_ids = simulator.random_crosses(f1, 100, n_offspring=10)
             >>> f2.shape
             (100, 10, 9839, 2)
+            >>> parent_ids.shape
+            (100, 2)
         """
         all_indices = np.arange(len(population))
         diallel_indices = self._diallel_indices(all_indices)
@@ -392,14 +395,14 @@ class Simulator:
         random_select_idx = jax.random.choice(
             split_key, len(diallel_indices), shape=(n_crosses,), replace=False
         )
-        cross_indices = diallel_indices[random_select_idx]
+        parent_indices = diallel_indices[random_select_idx]
 
-        cross_indices = np.repeat(cross_indices, n_offspring, axis=0)
+        cross_indices = np.repeat(parent_indices, n_offspring, axis=0)
         out = self.cross(population[cross_indices])
         out = out.reshape(n_crosses, n_offspring, *out.shape[1:])
         if n_offspring == 1:
             out = out.squeeze(1)
-        return out
+        return out, parent_indices
 
     def select(
         self,

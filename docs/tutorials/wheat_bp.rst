@@ -29,7 +29,7 @@ We start the breeding program by performing some random crosses that produce a n
 
 .. code-block:: python
 
-    f1 = simulator.random_crosses(f0, 100)
+    f1, _ = simulator.random_crosses(f0, 100)
     dh_lines = simulator.double_haploid(f1, n_offspring=100)
 
 In this way we obtain 100 lines, each containing 100 plants.
