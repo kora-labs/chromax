@@ -2,7 +2,7 @@
 import logging
 import random
 from pathlib import Path
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import jax
 import jax.numpy as jnp
@@ -361,7 +361,7 @@ class Simulator:
 
     def random_crosses(
         self, population: Population["n"], n_crosses: int, n_offspring: int = 1
-    ) -> Population["n_crosses n_offspring"]:
+    ) -> Tuple[Population["n_crosses n_offspring"], Int[Array, "n_crosses 2"]]:
         """Computes random crosses on a population.
 
         :param population: input population of shape (n, m, d).
