@@ -118,7 +118,7 @@ class Simulator:
         target_vars = (1 - h2) / h2 * self.GEBV_model.var
         env_effects *= np.sqrt(2 * target_vars / self.n_markers)
         self.GxE_model = TraitModel(
-            marker_effects=env_effects, mean=1, device=self.device
+            marker_effects=env_effects, offset=1, device=self.device
         )
 
         if recombination_column in genetic_map.columns:
