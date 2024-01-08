@@ -148,11 +148,11 @@ def test_random_crosses():
     population = simulator.load_population(n_ind, ploidy=ploidy)
 
     n_crosses = 300
-    new_pop = simulator.random_crosses(population, n_crosses=n_crosses)
+    new_pop, _ = simulator.random_crosses(population, n_crosses=n_crosses)
     assert new_pop.shape == (n_crosses, n_markers, ploidy)
 
     n_offspring = 10
-    new_pop = simulator.random_crosses(
+    new_pop, _ = simulator.random_crosses(
         population=population, n_crosses=n_crosses, n_offspring=n_offspring
     )
     assert new_pop.shape == (n_crosses, n_offspring, n_markers, ploidy)
@@ -212,8 +212,8 @@ def test_seed_deterministic():
     mock_simulator = MockSimulator(n_markers=simulator1.n_markers)
     population = mock_simulator.load_population(n_ind, ploidy=ploidy)
 
-    new_pop1 = simulator1.random_crosses(population, n_crosses=10)
-    new_pop2 = simulator2.random_crosses(population, n_crosses=10)
+    new_pop1, _ = simulator1.random_crosses(population, n_crosses=10)
+    new_pop2, _ = simulator2.random_crosses(population, n_crosses=10)
 
     assert np.all(new_pop1 == new_pop2)
 

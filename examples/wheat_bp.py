@@ -14,7 +14,7 @@ from chromax.typing import Individual, Population
 def wheat_schema(
     simulator: Simulator, germplasm: Population["50"]
 ) -> Tuple[Population["50"], Individual]:
-    f1 = simulator.random_crosses(germplasm, 100)
+    f1, _ = simulator.random_crosses(germplasm, 100)
     dh_lines = simulator.double_haploid(f1, n_offspring=100)
     headrows = simulator.select(
         dh_lines, k=5, f_index=visual_selection(simulator, seed=7)

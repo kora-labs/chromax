@@ -12,7 +12,7 @@ def wheat_schema(
     germplasm,
     factor=1,
 ):
-    f1 = simulator.random_crosses(germplasm, 200 * factor)
+    f1, _ = simulator.random_crosses(germplasm, 200 * factor)
 
     dh_lines = simulator.double_haploid(f1, n_offspring=100)
     # Use the following instead on M1 with 20x factor to avoid trashing
