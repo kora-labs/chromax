@@ -66,6 +66,7 @@ class Simulator:
         chr_column: str = "CHR.PHYS",
         position_column: str = "cM",
         recombination_column: str = "RecombRate",
+        mutation: Optional[Float] = None,
         h2: Optional[np.ndarray] = None,
         seed: Optional[int] = None,
         device: xc.Device = None,
@@ -150,6 +151,15 @@ class Simulator:
             raise ValueError(
                 f"One between {recombination_column} and {position_column} must be specified"
             )
+        if mutation is None:
+            self.mutation = 0.0
+        elif mutation > 0 and mutation < 1:
+            self.mutation = mutation
+        else:
+            raise ValueError(
+                f"mutation must be between 0 and 1, but got {mutation}"
+            )
+
 
         first_mrk_map = np.zeros(len(chr_map), dtype="bool")
         first_mrk_map[1:] = chr_map.iloc[1:].values != chr_map.iloc[:-1].values
@@ -164,6 +174,8 @@ class Simulator:
         :type seed: int
         """
         self.random_key = jax.random.PRNGKey(seed)
+        print(f'shape is {self.random_key.shape} {self.random_key[0]}')
+        return
 
     def load_population(self, file_name: Union[Path, str]) -> Population["n"]:
         """Load a population from file.
@@ -230,8 +242,9 @@ class Simulator:
             >>> f2.shape
             (3, 9839, 2)
         """
-        self.random_key, split_key = jax.random.split(self.random_key)
-        return functional.cross(parents, self.recombination_vec, split_key)
+        self.random_key, cross_split_key = jax.random.split(self.random_key)
+        self.random_key, mutate_split_key = jax.random.split(self.random_key)
+        return functional.cross(parents, self.recombination_vec, cross_split_key, mutate_split_key, self.mutation)
 
     @property
     def differentiable_cross_func(self) -> Callable:
@@ -309,9 +322,10 @@ class Simulator:
             >>> dh.shape
             (371, 10, 9839, 2)
         """
-        self.random_key, split_key = jax.random.split(self.random_key)
+        self.random_key, cross_split_key = jax.random.split(self.random_key)
+        self.random_key, mutation_split_key = jax.random.split(self.random_key)
         dh = functional.double_haploid(
-            population, n_offspring, self.recombination_vec, split_key
+            population, n_offspring, self.recombination_vec, cross_split_key, mutation_split_key, self.mutation
         )
 
         if n_offspring == 1:
