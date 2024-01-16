@@ -4,7 +4,7 @@ from typing import Callable
 
 import jax
 import jax.numpy as jnp
-from jaxtyping import Array, Float
+from jaxtyping import Array, Float, Int
 
 from .typing import N_MARKERS, Haploid, Individual, Parents, Population
 
@@ -142,7 +142,7 @@ def select(
     population: Population["n"],
     k: int,
     f_index: Callable[[Population["n"]], Float[Array, "n"]],
-) -> Population["k"]:
+) -> (Population["k"], Int[Array, "k"]):
     """Function to select individuals based on their score (index).
 
     :param population: input grouped population of shape (n, m, d)
@@ -154,8 +154,8 @@ def select(
         (n, m, 2) and returns an array of n float number.
     :type f_index: Callable
 
-    :return: output population of (k, m, d)
-    :rtype: ndarray
+    :return: output population of (k, m, d), output indecies of (k,)
+    :rtype: ndarray, ndarray
 
     :Example:
         >>> from chromax import functional
@@ -174,4 +174,4 @@ def select(
     """
     indices = f_index(population)
     _, best_pop = jax.lax.top_k(indices, k)
-    return population[best_pop, :, :]
+    return population[best_pop, :, :], best_pop
