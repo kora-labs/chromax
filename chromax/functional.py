@@ -1,6 +1,6 @@
 """Functional module."""
 from functools import partial
-from typing import Callable
+from typing import Callable, Tuple
 
 import jax
 import jax.numpy as jnp
@@ -142,7 +142,7 @@ def select(
     population: Population["n"],
     k: int,
     f_index: Callable[[Population["n"]], Float[Array, "n"]],
-) -> (Population["k"], Int[Array, "k"]):
+) -> Tuple[Population["k"], Int[Array, "k"]]:
     """Function to select individuals based on their score (index).
 
     :param population: input grouped population of shape (n, m, d)
@@ -168,7 +168,7 @@ def select(
         >>> marker_effects = np.random.randn(n_chr * chr_len)
         >>> gebv_model = TraitModel(marker_effects[:, None])
         >>> f_index = conventional_index(gebv_model)
-        >>> f2 = functional.select(f1, k=10, f_index=f_index)
+        >>> f2, selected_indices = functional.select(f1, k=10, f_index=f_index)
         >>> f2.shape
         (10, 1000, 2)
     """
