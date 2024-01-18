@@ -20,18 +20,18 @@ def wheat_schema(
     # dh_lines2 = simulator.double_haploid(f1[100*factor:], n_offspring=100)
     # dh_lines = jax.numpy.concatenate((dh_lines1, dh_lines2))
 
-    headrows = simulator.select(dh_lines, 5, visual_selection(simulator, seed=7))
+    headrows, _ = simulator.select(dh_lines, 5, visual_selection(simulator, seed=7))
     headrows = headrows.reshape(1000 * factor, -1, 2)
 
     envs = simulator.create_environments(num_environments=16)
-    pyt = simulator.select(
+    pyt, _ = simulator.select(
         headrows, k=100 * factor, f_index=phenotype_index(simulator, envs[0])
     )
-    ayt = simulator.select(
+    ayt, _ = simulator.select(
         pyt, k=10 * factor, f_index=phenotype_index(simulator, envs[:4])
     )
 
-    released_variety = simulator.select(
+    released_variety, _ = simulator.select(
         ayt, k=1, f_index=phenotype_index(simulator, envs)
     )
 

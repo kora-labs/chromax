@@ -409,7 +409,7 @@ class Simulator:
         population: Population["_g n"],
         k: int,
         f_index: Optional[Callable[[Population["n"]], Float[Array, "n"]]] = None,
-    ) -> Population["_g k"]:
+    ) -> Tuple[Population["_g k"], Int[Array, "_g k"]]:
         """Function to select individuals based on their score (index).
 
         :param population: input population of shape (n, m, d),
@@ -423,9 +423,9 @@ class Simulator:
             i.e. the sum of the marker effects masked with the SNPs from the genetic_map.
         :type f_index: Callable
 
-        :return: output population of shape (k, m, d) or (g, k, m, d),
-            depending on the input population.
-        :rtype: ndarray
+        :return: output population of shape (k, m, d) or (g, k, m, d), depending on the input
+            population, and respective indices of shape (k,) or (g, k)
+        :rtype: tuple of two ndarrays
 
         :Example:
             >>> from chromax import Simulator, sample_data
@@ -433,9 +433,11 @@ class Simulator:
             >>> f1 = simulator.load_population(sample_data.genome)
             >>> len(f1), simulator.GEBV(f1).mean().values
             (371, [8.223844])
-            >>> f2 = simulator.select(f1, k=20)
+            >>> f2, selected_indices = simulator.select(f1, k=20)
             >>> len(f2), simulator.GEBV(f2).mean().values
             (20, [14.595136])
+            >>> selected_indices.shape
+            (20,)
         """
         if f_index is None:
             f_index = conventional_index(self.GEBV_model)

@@ -1,10 +1,10 @@
 """Functional module."""
 from functools import partial
-from typing import Callable
+from typing import Callable, Tuple
 
 import jax
 import jax.numpy as jnp
-from jaxtyping import Array, Float
+from jaxtyping import Array, Float, Int
 
 from .typing import N_MARKERS, Haploid, Individual, Parents, Population
 
@@ -142,7 +142,7 @@ def select(
     population: Population["n"],
     k: int,
     f_index: Callable[[Population["n"]], Float[Array, "n"]],
-) -> Population["k"]:
+) -> Tuple[Population["k"], Int[Array, "k"]]:
     """Function to select individuals based on their score (index).
 
     :param population: input grouped population of shape (n, m, d)
@@ -154,8 +154,8 @@ def select(
         (n, m, 2) and returns an array of n float number.
     :type f_index: Callable
 
-    :return: output population of (k, m, d)
-    :rtype: ndarray
+    :return: output population of shape (k, m, d), output indices of shape (k,)
+    :rtype: tuple of two ndarrays
 
     :Example:
         >>> from chromax import functional
@@ -168,10 +168,10 @@ def select(
         >>> marker_effects = np.random.randn(n_chr * chr_len)
         >>> gebv_model = TraitModel(marker_effects[:, None])
         >>> f_index = conventional_index(gebv_model)
-        >>> f2 = functional.select(f1, k=10, f_index=f_index)
+        >>> f2, selected_indices = functional.select(f1, k=10, f_index=f_index)
         >>> f2.shape
         (10, 1000, 2)
     """
     indices = f_index(population)
     _, best_pop = jax.lax.top_k(indices, k)
-    return population[best_pop, :, :]
+    return population[best_pop, :, :], best_pop
