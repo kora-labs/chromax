@@ -44,7 +44,7 @@ def test_select():
     marker_effects = np.random.randn(n_markers)
     gebv_model = TraitModel(marker_effects[:, None])
     f_index = conventional_index(gebv_model)
-    f2 = functional.select(f1, k=k, f_index=f_index)
+    f2, _ = functional.select(f1, k=k, f_index=f_index)
     assert f2.shape == (k, *f1.shape[1:])
 
     f1_gebv = gebv_model(f1)

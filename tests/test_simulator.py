@@ -123,14 +123,14 @@ def test_select():
     population = simulator.load_population(n_ind, ploidy=ploidy)
     pop_GEBV = simulator.GEBV(population)
 
-    selected_pop = simulator.select(population, k=10)
+    selected_pop, _ = simulator.select(population, k=10)
     selected_GEBV = simulator.GEBV(selected_pop)
     assert np.all(selected_GEBV.mean() > pop_GEBV.mean())
     assert np.all(selected_GEBV.max() == pop_GEBV.max())
     assert np.all(selected_GEBV.min() > pop_GEBV.min())
 
     dh = simulator.double_haploid(population, n_offspring=100)
-    selected_dh = simulator.select(dh, k=5)
+    selected_dh, _ = simulator.select(dh, k=5)
     assert selected_dh.shape == (n_ind, 5, n_markers, ploidy)
     for i in range(n_ind):
         dh_GEBV = simulator.GEBV(dh[i])
@@ -190,7 +190,7 @@ def test_device():
     GEBV = simulator.GEBV_model(population)
     assert GEBV.device_buffer.device() == device
 
-    selected_pop = simulator.select(population, k=10)
+    selected_pop, _ = simulator.select(population, k=10)
     assert selected_pop.device_buffer.device() == device
 
     diallel = simulator.diallel(selected_pop, n_offspring=10)
