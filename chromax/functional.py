@@ -154,8 +154,8 @@ def select(
         (n, m, 2) and returns an array of n float number.
     :type f_index: Callable
 
-    :return: output population of (k, m, d), output indices of (k,)
-    :rtype: ndarray, ndarray
+    :return: output population of shape (k, m, d), output indices of shape (k,)
+    :rtype: tuple of two ndarrays
 
     :Example:
         >>> from chromax import functional

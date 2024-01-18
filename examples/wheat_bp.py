@@ -26,7 +26,9 @@ def wheat_schema(
     )
 
     envs = simulator.create_environments(num_environments=16)
-    pyt, _ = simulator.select(headrows, k=50, f_index=phenotype_index(simulator, envs[0]))
+    pyt, _ = simulator.select(
+        headrows, k=50, f_index=phenotype_index(simulator, envs[0])
+    )
     pyt_next_cycle, _ = simulator.select(
         headrows, k=20, f_index=phenotype_index(simulator, envs[0])
     )

@@ -123,21 +123,30 @@ def test_select():
     population = simulator.load_population(n_ind, ploidy=ploidy)
     pop_GEBV = simulator.GEBV(population)
 
-    selected_pop, _ = simulator.select(population, k=10)
+    k = 10
+    selected_pop, selected_indices = simulator.select(population, k=k)
+    assert selected_pop.shape == (k, n_markers, ploidy)
+    assert selected_indices.shape == (k,)
     selected_GEBV = simulator.GEBV(selected_pop)
     assert np.all(selected_GEBV.mean() > pop_GEBV.mean())
     assert np.all(selected_GEBV.max() == pop_GEBV.max())
     assert np.all(selected_GEBV.min() > pop_GEBV.min())
+    GEBV_indices = pop_GEBV.iloc[selected_indices]
+    assert np.all(GEBV_indices.reset_index(drop=True) == selected_GEBV)
 
+    k = 5
     dh = simulator.double_haploid(population, n_offspring=100)
-    selected_dh, _ = simulator.select(dh, k=5)
-    assert selected_dh.shape == (n_ind, 5, n_markers, ploidy)
+    selected_dh, selected_indices = simulator.select(dh, k=k)
+    assert selected_dh.shape == (n_ind, k, n_markers, ploidy)
+    assert selected_indices.shape == (n_ind, k)
     for i in range(n_ind):
         dh_GEBV = simulator.GEBV(dh[i])
         selected_GEBV = simulator.GEBV(selected_dh[i])
         assert np.all(selected_GEBV.mean() > dh_GEBV.mean())
         assert np.all(selected_GEBV.max() == dh_GEBV.max())
         assert np.all(selected_GEBV.min() > dh_GEBV.min())
+        GEBV_indices = dh_GEBV.iloc[selected_indices[i]]
+        assert np.all(GEBV_indices.reset_index(drop=True) == selected_GEBV)
 
 
 def test_random_crosses():
