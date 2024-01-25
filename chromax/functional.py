@@ -30,7 +30,8 @@ def cross(
     :type cross_random_key: jax.random.PRNGKeyArray
     :param mutate_split_key: JAX PRNGKey, for mutation purpose.
     :type mutate_split_key: jax.random.PRNGKeyArray,
-    :PARAM mutate_probability: float, probability of mutating
+    :param mutate_probability: float, probability of mutating
+    :type mutate_probability: float
     :return: offspring population of shape (n, m, d).
     :rtype: ndarray
 
@@ -45,8 +46,10 @@ def cross(
         >>> rec_vec = np.full((n_chr, chr_len), 1.5 / chr_len)
         >>> rec_vec[:, 0] = 0.5  # equal probability on starting haploid
         >>> rec_vec = rec_vec.flatten()
-        >>> random_key = jax.random.PRNGKey(42)
-        >>> f2 = functional.cross(parents, rec_vec, cross_random_key)
+        >>> cross_random_key = jax.random.PRNGKey(42)
+        >>> mutate_random_key = jax.random.PRNGKey(42)
+        >>> mutate_probability = 0.001
+        >>> f2 = functional.cross(parents, rec_vec, cross_random_key, mutate_random_key, mutate_probability)
         >>> f2.shape
         (50, 1000, 2)
     """
