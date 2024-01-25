@@ -29,7 +29,8 @@ def cross(
     :param cross_random_key: JAX PRNGKey, for reproducibility purpose.
     :type cross_random_key: jax.random.PRNGKeyArray
     :param mutate_split_key: JAX PRNGKey, for mutation purpose.
-    :type mutate_split_key: jax.random.PRNGKeyArray
+    :type mutate_split_key: jax.random.PRNGKeyArray,
+    :PARAM mutate_probability: float, probability of mutating
     :return: offspring population of shape (n, m, d).
     :rtype: ndarray
 
