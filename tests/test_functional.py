@@ -28,8 +28,10 @@ def test_double_haploid():
     pop_shape = (50, n_chr * chr_len, ploidy)
     f1 = np.random.choice([False, True], size=pop_shape)
     rec_vec = np.full((n_chr * chr_len,), 1.5 / chr_len)
-    random_key = jax.random.PRNGKey(42)
-    dh = functional.double_haploid(f1, n_offspring, rec_vec, random_key)
+    cross_random_key = jax.random.PRNGKey(42)
+    mutate_random_key = jax.random.PRNGKey(42)
+    mutate_probability = 0.001
+    dh = functional.double_haploid(f1, n_offspring, rec_vec, cross_random_key, mutate_random_key, mutate_probability)
     assert dh.shape == (len(f1), n_offspring, n_chr * chr_len, ploidy)
 
     for i in range(ploidy // 2):
