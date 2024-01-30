@@ -316,10 +316,9 @@ class Simulator:
             >>> dh.shape
             (371, 10, 9839, 2)
         """
-        self.random_key, cross_split_key = jax.random.split(self.random_key)
-        self.random_key, mutation_split_key = jax.random.split(self.random_key)
+        self.random_key, random_key = jax.random.split(self.random_key)
         dh = functional.double_haploid(
-            population, n_offspring, self.recombination_vec, cross_split_key, mutation_split_key, self.mutation
+            population, n_offspring, self.recombination_vec, random_key, self.mutation
         )
 
         if n_offspring == 1:

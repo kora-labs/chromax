@@ -54,7 +54,7 @@ def cross(
     """
     parents = parents.reshape(*parents.shape[:3], -1, 2)
     random_keys = jax.random.split(random_key, num=2 * len(parents) * 2 * parents.shape[3])
-    random_keys = random_keys.reshape(3, len(parents), 2, parents.shape[3], 2)
+    random_keys = random_keys.reshape(2, len(parents), 2, parents.shape[3], 2)
     cross_random_key, mutate_random_key = random_keys
 
     offsprings = _cross(parents, recombination_vec, cross_random_key, mutate_random_key, mutate_probability)
@@ -117,7 +117,7 @@ def double_haploid(
     """
     population = population.reshape(*population.shape[:2], -1, 2)
     random_keys = jax.random.split(random_key, num=2 * len(population) * 2 * population.shape[3])
-    random_keys = random_keys.reshape(3, len(population), 2, population.shape[3], 2)
+    random_keys = random_keys.reshape(2, len(population), 2, population.shape[3], 2)
     cross_random_key, mutate_random_key = random_keys
     haploids = _double_haploid(population, recombination_vec, cross_random_key, mutate_random_key, mutate_probability)
     dh_pop = jnp.broadcast_to(haploids[..., None], shape=(*haploids.shape, 2))
