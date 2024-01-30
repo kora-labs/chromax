@@ -14,6 +14,7 @@ def cross(
     parents: Parents["n"],
     recombination_vec: Float[Array, N_MARKERS],
     random_key: jax.random.PRNGKeyArray,
+    mutation_probability: float = 0.0,
 ) -> Population["n"]:
     """Main function that computes crosses from a list of parents.
 
@@ -26,7 +27,8 @@ def cross(
     :type recombination_vec:
     :param random_key: JAX PRNGKey, for reproducibility purpose.
     :type random_key: jax.random.PRNGKeyArray
-
+    :param mutation_probability: The probability of having a mutation in a marker.
+    :type mutation_probability: float
     :return: offspring population of shape (n, m, d).
     :rtype: ndarray
 
@@ -47,21 +49,39 @@ def cross(
         (50, 1000, 2)
     """
     parents = parents.reshape(*parents.shape[:3], -1, 2)
-    random_keys = jax.random.split(random_key, num=len(parents) * 2 * parents.shape[3])
-    random_keys = random_keys.reshape(len(parents), 2, parents.shape[3], 2)
-    offsprings = _cross(parents, recombination_vec, random_keys)
+    random_keys = jax.random.split(
+        random_key, num=2 * len(parents) * 2 * parents.shape[3]
+    )
+    random_keys = random_keys.reshape(2, len(parents), 2, parents.shape[3], 2)
+    cross_random_key, mutate_random_key = random_keys
+
+    offsprings = _cross(
+        parents,
+        recombination_vec,
+        cross_random_key,
+        mutate_random_key,
+        mutation_probability,
+    )
     return offsprings.reshape(*offsprings.shape[:-2], -1)
 
 
 @jax.jit
-@partial(jax.vmap, in_axes=(0, None, 0))  # parallelize across individuals
-@partial(jax.vmap, in_axes=(0, None, 0), out_axes=2)  # parallelize parents
+@partial(jax.vmap, in_axes=(0, None, 0, 0, None))  # parallelize across individuals
+@partial(jax.vmap, in_axes=(0, None, 0, 0, None), out_axes=2)  # parallelize parents
 def _cross(
     parent: Individual,
     recombination_vec: Float[Array, N_MARKERS],
-    random_key: jax.random.PRNGKeyArray,
+    cross_random_key: jax.random.PRNGKeyArray,
+    mutate_random_key: jax.random.PRNGKeyArray,
+    mutation_probability: float,
 ) -> Haploid:
-    return _meiosis(parent, recombination_vec, random_key)
+    return _meiosis(
+        parent,
+        recombination_vec,
+        cross_random_key,
+        mutate_random_key,
+        mutation_probability,
+    )
 
 
 def double_haploid(
@@ -69,6 +89,7 @@ def double_haploid(
     n_offspring: int,
     recombination_vec: Float[Array, N_MARKERS],
     random_key: jax.random.PRNGKeyArray,
+    mutation_probability: float = 0.0,
 ) -> Population["n n_offspring"]:
     """Computes the double haploid of the input population.
 
@@ -81,7 +102,8 @@ def double_haploid(
     :type recombination_vec: ndarray
     :param random_key: array of n PRNGKey, one for each individual.
     :type random_key: jax.random.PRNGKeyArray
-
+    :param mutation_probability: The probability of having a mutation in a marker.
+    :type mutation_probability: float
     :return: output population of shape (n, n_offspring, m, d).
         This population will be homozygote.
     :rtype: ndarray
@@ -103,37 +125,60 @@ def double_haploid(
     """
     population = population.reshape(*population.shape[:2], -1, 2)
     keys = jax.random.split(
-        random_key, num=len(population) * n_offspring * population.shape[2]
-    ).reshape(len(population), n_offspring, population.shape[2], 2)
-    haploids = _double_haploid(population, recombination_vec, keys)
+        random_key, num=2 * len(population) * n_offspring * population.shape[2]
+    ).reshape(2, len(population), n_offspring, population.shape[2], 2)
+    cross_random_key, mutate_random_key = keys
+    haploids = _double_haploid(
+        population,
+        recombination_vec,
+        cross_random_key,
+        mutate_random_key,
+        mutation_probability,
+    )
     dh_pop = jnp.broadcast_to(haploids[..., None], shape=(*haploids.shape, 2))
     return dh_pop.reshape(*dh_pop.shape[:-2], -1)
 
 
 @jax.jit
-@partial(jax.vmap, in_axes=(0, None, 0))  # parallelize across individuals
-@partial(jax.vmap, in_axes=(None, None, 0))  # parallelize across offsprings
+@partial(jax.vmap, in_axes=(0, None, 0, 0, None))  # parallelize across individuals
+@partial(jax.vmap, in_axes=(None, None, 0, 0, None))  # parallelize across offsprings
 def _double_haploid(
     individual: Individual,
     recombination_vec: Float[Array, N_MARKERS],
-    random_key: jax.random.PRNGKeyArray,
+    cross_random_key: jax.random.PRNGKeyArray,
+    mutate_random_key: jax.random.PRNGKeyArray,
+    mutation_probability: float,
 ) -> Haploid:
-    return _meiosis(individual, recombination_vec, random_key)
+    return _meiosis(
+        individual,
+        recombination_vec,
+        cross_random_key,
+        mutate_random_key,
+        mutation_probability,
+    )
 
 
 @jax.jit
-@partial(jax.vmap, in_axes=(1, None, 0), out_axes=1)  # parallelize pair of chromosomes
+@partial(
+    jax.vmap, in_axes=(1, None, 0, 0, None), out_axes=1
+)  # parallelize pair of chromosomes
 def _meiosis(
     individual: Individual,
     recombination_vec: Float[Array, N_MARKERS],
-    random_key: jax.random.PRNGKeyArray,
+    cross_random_key: jax.random.PRNGKeyArray,
+    mutate_random_key: jax.random.PRNGKeyArray,
+    mutation_probability: float,
 ) -> Haploid:
-    samples = jax.random.uniform(random_key, shape=recombination_vec.shape)
+    samples = jax.random.uniform(cross_random_key, shape=recombination_vec.shape)
     rec_sites = samples < recombination_vec
     crossover_mask = jax.lax.associative_scan(jnp.logical_xor, rec_sites)
 
     crossover_mask = crossover_mask.astype(jnp.int8)
     haploid = jnp.take_along_axis(individual, crossover_mask[:, None], axis=-1)
+
+    mutation_samples = jax.random.uniform(mutate_random_key, shape=haploid.shape)
+    mutation_sites = mutation_samples < mutation_probability
+    haploid = jnp.where(mutation_sites, 1 - haploid, haploid)
 
     return haploid.squeeze()
 
