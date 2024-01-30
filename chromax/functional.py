@@ -13,9 +13,8 @@ from .typing import N_MARKERS, Haploid, Individual, Parents, Population
 def cross(
     parents: Parents["n"],
     recombination_vec: Float[Array, N_MARKERS],
-    cross_random_key: jax.random.PRNGKeyArray,
-    mutate_split_key: jax.random.PRNGKeyArray,
-    mutate_probability: float,
+    random_key: jax.random.PRNGKeyArray,
+    mutate_probability: float = 0.0,
 ) -> Population["n"]:
     """Main function that computes crosses from a list of parents.
 
@@ -54,13 +53,11 @@ def cross(
         (50, 1000, 2)
     """
     parents = parents.reshape(*parents.shape[:3], -1, 2)
-    cross_random_key = jax.random.split(cross_random_key, num=len(parents) * 2 * parents.shape[3])
-    cross_random_key = cross_random_key.reshape(len(parents), 2, parents.shape[3], 2)
+    random_keys = jax.random.split(random_key, num=2 * len(parents) * 2 * parents.shape[3])
+    random_keys = random_keys.reshape(3, len(parents), 2, parents.shape[3], 2)
+    cross_random_key, mutate_random_key = random_keys
 
-    mutate_split_key = jax.random.split(mutate_split_key, num=len(parents) * 2 * parents.shape[3])
-    mutate_split_key = mutate_split_key.reshape(len(parents), 2, parents.shape[3], 2)
-
-    offsprings = _cross(parents, recombination_vec, cross_random_key, mutate_split_key, mutate_probability)
+    offsprings = _cross(parents, recombination_vec, cross_random_key, mutate_random_key, mutate_probability)
     return offsprings.reshape(*offsprings.shape[:-2], -1)
 
 
@@ -81,8 +78,7 @@ def double_haploid(
     population: Population["n"],
     n_offspring: int,
     recombination_vec: Float[Array, N_MARKERS],
-    cross_random_key: jax.random.PRNGKeyArray,
-    mutate_random_key: jax.random.PRNGKeyArray,
+    random_key: jax.random.PRNGKeyArray,
     mutate_probability: float,
 ) -> Population["n n_offspring"]:
     """Computes the double haploid of the input population.
@@ -120,13 +116,10 @@ def double_haploid(
         (50, 10, 1000, 2)
     """
     population = population.reshape(*population.shape[:2], -1, 2)
-    cross_keys = jax.random.split(
-        cross_random_key, num=len(population) * n_offspring * population.shape[2]
-    ).reshape(len(population), n_offspring, population.shape[2], 2)
-    mutate_random_keys = jax.random.split(
-        mutate_random_key, num=len(population) * n_offspring * population.shape[2]
-    ).reshape(len(population), n_offspring, population.shape[2], 2)
-    haploids = _double_haploid(population, recombination_vec, cross_keys, mutate_random_keys, mutate_probability)
+    random_keys = jax.random.split(random_key, num=2 * len(population) * 2 * population.shape[3])
+    random_keys = random_keys.reshape(3, len(population), 2, population.shape[3], 2)
+    cross_random_key, mutate_random_key = random_keys
+    haploids = _double_haploid(population, recombination_vec, cross_random_key, mutate_random_key, mutate_probability)
     dh_pop = jnp.broadcast_to(haploids[..., None], shape=(*haploids.shape, 2))
     return dh_pop.reshape(*dh_pop.shape[:-2], -1)
 
@@ -161,7 +154,7 @@ def _meiosis(
     haploid = jnp.take_along_axis(individual, crossover_mask[:, None], axis=-1)
 
     mutation_samples = jax.random.uniform(mutate_random_key, shape=haploid.shape)
-    mutation_sites = mutation_samples > mutate_probability
+    mutation_sites = mutation_samples < mutate_probability
     haploid = jnp.where(mutation_sites, 1 - haploid, haploid)
 
 
