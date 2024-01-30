@@ -269,9 +269,9 @@ def test_mutation():
 
     assert np.all(simulator.cross(parents) == population)
 
-    simulator = MockSimulator(n_markers, rec_vec, mutation=1)
+    simulator = MockSimulator(n_markers, rec_vec, mutation_probability=1)
     assert np.all(simulator.cross(parents) != population)
 
-    simulator = MockSimulator(n_markers, rec_vec, mutation=0.5)
+    simulator = MockSimulator(n_markers, rec_vec, mutation_probability=0.5)
     assert not np.all(simulator.cross(parents) == population)
     assert not np.all(simulator.cross(parents) != population)

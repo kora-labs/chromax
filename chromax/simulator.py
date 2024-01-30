@@ -38,6 +38,8 @@ class Simulator:
         recombination happens before the current marker and after the previous one.
         The default value is `RecombRate`.
     :type recombination_column: str
+    :param mutation_probability: The probability of having a mutation in a marker.
+    :type mutation_probability: float
     :param h2: narrow-sense heritability value for each trait.
         The default value is 0.5 for each trait.
     :type h2: array of float
@@ -66,7 +68,7 @@ class Simulator:
         chr_column: str = "CHR.PHYS",
         position_column: str = "cM",
         recombination_column: str = "RecombRate",
-        mutation: float = 0.0,
+        mutation_probability: float = 0.0,
         h2: Optional[np.ndarray] = None,
         seed: Optional[int] = None,
         device: xc.Device = None,
@@ -151,11 +153,11 @@ class Simulator:
             raise ValueError(
                 f"One between {recombination_column} and {position_column} must be specified"
             )
-        if mutation < 0 or mutation > 1:
+        if mutation_probability < 0 or mutation_probability > 1:
             raise ValueError(
-                f"mutation must be between 0 and 1, but got {mutation}"
+                f"mutation must be between 0 and 1, but got {mutation_probability}"
             )
-        self.mutation = mutation
+        self.mutation_probability = mutation_probability
 
         first_mrk_map = np.zeros(len(chr_map), dtype="bool")
         first_mrk_map[1:] = chr_map.iloc[1:].values != chr_map.iloc[:-1].values
@@ -237,7 +239,7 @@ class Simulator:
             (3, 9839, 2)
         """
         self.random_key, split_key = jax.random.split(self.random_key)
-        return functional.cross(parents, self.recombination_vec, split_key, self.mutation)
+        return functional.cross(parents, self.recombination_vec, split_key, self.mutation_probability)
 
     @property
     def differentiable_cross_func(self) -> Callable:
@@ -317,7 +319,7 @@ class Simulator:
         """
         self.random_key, split_key = jax.random.split(self.random_key)
         dh = functional.double_haploid(
-            population, n_offspring, self.recombination_vec, split_key, self.mutation
+            population, n_offspring, self.recombination_vec, split_key, self.mutation_probability
         )
 
         if n_offspring == 1:
