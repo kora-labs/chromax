@@ -170,7 +170,6 @@ class Simulator:
         :type seed: int
         """
         self.random_key = jax.random.PRNGKey(seed)
-        return
 
     def load_population(self, file_name: Union[Path, str]) -> Population["n"]:
         """Load a population from file.
