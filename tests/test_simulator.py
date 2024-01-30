@@ -257,3 +257,21 @@ def test_phenotyping():
 
     with pytest.raises(ValueError):
         simulator.phenotype(population, num_environments=8, environments=environments)
+
+
+def test_mutation():
+    n_markers, n_ind = 1000, 10
+    rec_vec = np.zeros(n_markers)
+    simulator = MockSimulator(n_markers=n_markers, recombination_vec=rec_vec)
+    population = simulator.load_population(n_ind, ploidy=2)
+    parents = np.transpose(population, axes=(0, 2, 1))
+    parents = np.broadcast_to(parents[..., None], (n_ind, 2, n_markers, 2))
+
+    assert np.all(simulator.cross(parents) == population)
+
+    simulator = MockSimulator(n_markers, rec_vec, mutation=1)
+    assert np.all(simulator.cross(parents) != population)
+
+    simulator = MockSimulator(n_markers, rec_vec, mutation=0.5)
+    assert not np.all(simulator.cross(parents) == population)
+    assert not np.all(simulator.cross(parents) != population)
