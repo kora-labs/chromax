@@ -25,10 +25,8 @@ def cross(
     :param recombination_vec: array of m probabilities.
         The i-th value represent the probability to recombine before the marker i.
     :type recombination_vec:
-    :param cross_random_key: JAX PRNGKey, for reproducibility purpose.
-    :type cross_random_key: jax.random.PRNGKeyArray
-    :param mutate_split_key: JAX PRNGKey, for mutation purpose.
-    :type mutate_split_key: jax.random.PRNGKeyArray,
+    :param random_key: JAX PRNGKey, for reproducibility purpose.
+    :type random_key: jax.random.PRNGKeyArray
     :param mutate_probability: float, probability of mutating
     :type mutate_probability: float
     :return: offspring population of shape (n, m, d).
@@ -45,10 +43,8 @@ def cross(
         >>> rec_vec = np.full((n_chr, chr_len), 1.5 / chr_len)
         >>> rec_vec[:, 0] = 0.5  # equal probability on starting haploid
         >>> rec_vec = rec_vec.flatten()
-        >>> cross_random_key = jax.random.PRNGKey(42)
-        >>> mutate_random_key = jax.random.PRNGKey(42)
-        >>> mutate_probability = 0.001
-        >>> f2 = functional.cross(parents, rec_vec, cross_random_key, mutate_random_key, mutate_probability)
+        >>> random_key = jax.random.PRNGKey(42)
+        >>> f2 = functional.cross(parents, rec_vec, random_key)
         >>> f2.shape
         (50, 1000, 2)
     """
@@ -79,7 +75,7 @@ def double_haploid(
     n_offspring: int,
     recombination_vec: Float[Array, N_MARKERS],
     random_key: jax.random.PRNGKeyArray,
-    mutate_probability: float,
+    mutate_probability: float = 0.0,
 ) -> Population["n n_offspring"]:
     """Computes the double haploid of the input population.
 
@@ -90,10 +86,8 @@ def double_haploid(
     :param recombination_vec: array of m probabilities.
         The i-th value represent the probability to recombine before the marker i.
     :type recombination_vec: ndarray
-    :param cross_random_key: array of n PRNGKey, one for each individual.
-    :type cross_random_key: jax.random.PRNGKeyArray
-    :param mutate_random_key: array of n PRNGKey, one for each individual.
-    :type mutate_random_key: jax.random.PRNGKeyArray
+    :param random_key: array of n PRNGKey, one for each individual.
+    :type random_key: jax.random.PRNGKeyArray
     :param mutate_probability: mutation probability for each individual.
     :type mutate_probability: float
     :return: output population of shape (n, n_offspring, m, d).
@@ -115,10 +109,12 @@ def double_haploid(
         >>> dh.shape
         (50, 10, 1000, 2)
     """
+
     population = population.reshape(*population.shape[:2], -1, 2)
-    random_keys = jax.random.split(random_key, num=2 * len(population) * 2 * population.shape[3])
-    random_keys = random_keys.reshape(2, len(population), 2, population.shape[3], 2)
-    cross_random_key, mutate_random_key = random_keys
+    keys = jax.random.split(
+        random_key, num=2 * len(population) * n_offspring * population.shape[2]
+    ).reshape(2, len(population), n_offspring, population.shape[2], 2)
+    cross_random_key, mutate_random_key = keys
     haploids = _double_haploid(population, recombination_vec, cross_random_key, mutate_random_key, mutate_probability)
     dh_pop = jnp.broadcast_to(haploids[..., None], shape=(*haploids.shape, 2))
     return dh_pop.reshape(*dh_pop.shape[:-2], -1)
