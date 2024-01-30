@@ -49,11 +49,19 @@ def cross(
         (50, 1000, 2)
     """
     parents = parents.reshape(*parents.shape[:3], -1, 2)
-    random_keys = jax.random.split(random_key, num=2 * len(parents) * 2 * parents.shape[3])
+    random_keys = jax.random.split(
+        random_key, num=2 * len(parents) * 2 * parents.shape[3]
+    )
     random_keys = random_keys.reshape(2, len(parents), 2, parents.shape[3], 2)
     cross_random_key, mutate_random_key = random_keys
 
-    offsprings = _cross(parents, recombination_vec, cross_random_key, mutate_random_key, mutation_probability)
+    offsprings = _cross(
+        parents,
+        recombination_vec,
+        cross_random_key,
+        mutate_random_key,
+        mutation_probability,
+    )
     return offsprings.reshape(*offsprings.shape[:-2], -1)
 
 
@@ -67,7 +75,13 @@ def _cross(
     mutate_random_key: jax.random.PRNGKeyArray,
     mutation_probability: float,
 ) -> Haploid:
-    return _meiosis(parent, recombination_vec, cross_random_key, mutate_random_key, mutation_probability)
+    return _meiosis(
+        parent,
+        recombination_vec,
+        cross_random_key,
+        mutate_random_key,
+        mutation_probability,
+    )
 
 
 def double_haploid(
@@ -109,13 +123,18 @@ def double_haploid(
         >>> dh.shape
         (50, 10, 1000, 2)
     """
-
     population = population.reshape(*population.shape[:2], -1, 2)
     keys = jax.random.split(
         random_key, num=2 * len(population) * n_offspring * population.shape[2]
     ).reshape(2, len(population), n_offspring, population.shape[2], 2)
     cross_random_key, mutate_random_key = keys
-    haploids = _double_haploid(population, recombination_vec, cross_random_key, mutate_random_key, mutation_probability)
+    haploids = _double_haploid(
+        population,
+        recombination_vec,
+        cross_random_key,
+        mutate_random_key,
+        mutation_probability,
+    )
     dh_pop = jnp.broadcast_to(haploids[..., None], shape=(*haploids.shape, 2))
     return dh_pop.reshape(*dh_pop.shape[:-2], -1)
 
@@ -130,11 +149,19 @@ def _double_haploid(
     mutate_random_key: jax.random.PRNGKeyArray,
     mutation_probability: float,
 ) -> Haploid:
-    return _meiosis(individual, recombination_vec, cross_random_key, mutate_random_key, mutation_probability)
+    return _meiosis(
+        individual,
+        recombination_vec,
+        cross_random_key,
+        mutate_random_key,
+        mutation_probability,
+    )
 
 
 @jax.jit
-@partial(jax.vmap, in_axes=(1, None, 0, 0, None), out_axes=1)  # parallelize pair of chromosomes
+@partial(
+    jax.vmap, in_axes=(1, None, 0, 0, None), out_axes=1
+)  # parallelize pair of chromosomes
 def _meiosis(
     individual: Individual,
     recombination_vec: Float[Array, N_MARKERS],

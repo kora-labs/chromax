@@ -239,7 +239,9 @@ class Simulator:
             (3, 9839, 2)
         """
         self.random_key, split_key = jax.random.split(self.random_key)
-        return functional.cross(parents, self.recombination_vec, split_key, self.mutation_probability)
+        return functional.cross(
+            parents, self.recombination_vec, split_key, self.mutation_probability
+        )
 
     @property
     def differentiable_cross_func(self) -> Callable:
@@ -319,7 +321,11 @@ class Simulator:
         """
         self.random_key, split_key = jax.random.split(self.random_key)
         dh = functional.double_haploid(
-            population, n_offspring, self.recombination_vec, split_key, self.mutation_probability
+            population,
+            n_offspring,
+            self.recombination_vec,
+            split_key,
+            self.mutation_probability,
         )
 
         if n_offspring == 1:
