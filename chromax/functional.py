@@ -27,7 +27,7 @@ def cross(
     :type recombination_vec:
     :param random_key: JAX PRNGKey, for reproducibility purpose.
     :type random_key: jax.random.PRNGKeyArray
-    :param mutation_probability: probability of mutating a marker.
+    :param mutation_probability: The probability of having a mutation in a marker.
     :type mutation_probability: float
     :return: offspring population of shape (n, m, d).
     :rtype: ndarray
@@ -102,7 +102,7 @@ def double_haploid(
     :type recombination_vec: ndarray
     :param random_key: array of n PRNGKey, one for each individual.
     :type random_key: jax.random.PRNGKeyArray
-    :param mutation_probability: mutation probability for each individual.
+    :param mutation_probability: The probability of having a mutation in a marker.
     :type mutation_probability: float
     :return: output population of shape (n, n_offspring, m, d).
         This population will be homozygote.
