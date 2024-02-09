@@ -13,7 +13,7 @@ from .typing import N_MARKERS, Haploid, Individual, Parents, Population
 def cross(
     parents: Parents["n"],
     recombination_vec: Float[Array, N_MARKERS],
-    random_key: jax.random.PRNGKeyArray,
+    random_key: jax.Array,
     mutation_probability: float = 0.0,
 ) -> Population["n"]:
     """Main function that computes crosses from a list of parents.
@@ -25,8 +25,8 @@ def cross(
     :param recombination_vec: array of m probabilities.
         The i-th value represent the probability to recombine before the marker i.
     :type recombination_vec:
-    :param random_key: JAX PRNGKey, for reproducibility purpose.
-    :type random_key: jax.random.PRNGKeyArray
+    :param random_key: JAX Array with dtype jax.dtypes.prng_key, for reproducibility purpose.
+    :type random_key: jax.Array 
     :param mutation_probability: The probability of having a mutation in a marker.
     :type mutation_probability: float
     :return: offspring population of shape (n, m, d).
@@ -71,8 +71,8 @@ def cross(
 def _cross(
     parent: Individual,
     recombination_vec: Float[Array, N_MARKERS],
-    cross_random_key: jax.random.PRNGKeyArray,
-    mutate_random_key: jax.random.PRNGKeyArray,
+    cross_random_key: jax.Array,
+    mutate_random_key: jax.Array,
     mutation_probability: float,
 ) -> Haploid:
     return _meiosis(
@@ -88,7 +88,7 @@ def double_haploid(
     population: Population["n"],
     n_offspring: int,
     recombination_vec: Float[Array, N_MARKERS],
-    random_key: jax.random.PRNGKeyArray,
+    random_key: jax.Array,
     mutation_probability: float = 0.0,
 ) -> Population["n n_offspring"]:
     """Computes the double haploid of the input population.
@@ -101,7 +101,7 @@ def double_haploid(
         The i-th value represent the probability to recombine before the marker i.
     :type recombination_vec: ndarray
     :param random_key: array of n PRNGKey, one for each individual.
-    :type random_key: jax.random.PRNGKeyArray
+    :type random_key: jax.Array with dtype jax.dtypes.prng_key
     :param mutation_probability: The probability of having a mutation in a marker.
     :type mutation_probability: float
     :return: output population of shape (n, n_offspring, m, d).
@@ -145,8 +145,8 @@ def double_haploid(
 def _double_haploid(
     individual: Individual,
     recombination_vec: Float[Array, N_MARKERS],
-    cross_random_key: jax.random.PRNGKeyArray,
-    mutate_random_key: jax.random.PRNGKeyArray,
+    cross_random_key: jax.Array,
+    mutate_random_key: jax.Array,
     mutation_probability: float,
 ) -> Haploid:
     return _meiosis(
@@ -165,8 +165,8 @@ def _double_haploid(
 def _meiosis(
     individual: Individual,
     recombination_vec: Float[Array, N_MARKERS],
-    cross_random_key: jax.random.PRNGKeyArray,
-    mutate_random_key: jax.random.PRNGKeyArray,
+    cross_random_key: jax.Array,
+    mutate_random_key: jax.Array,
     mutation_probability: float,
 ) -> Haploid:
     samples = jax.random.uniform(cross_random_key, shape=recombination_vec.shape)
