@@ -13,7 +13,7 @@ from .typing import N_MARKERS, Haploid, Individual, Parents, Population
 def cross(
     parents: Parents["n"],
     recombination_vec: Float[Array, N_MARKERS],
-    random_key: jax.random.PRNGKeyArray,
+    random_key: jax.Array,
     mutation_probability: float = 0.0,
 ) -> Population["n"]:
     """Main function that computes crosses from a list of parents.
@@ -25,8 +25,8 @@ def cross(
     :param recombination_vec: array of m probabilities.
         The i-th value represent the probability to recombine before the marker i.
     :type recombination_vec:
-    :param random_key: JAX PRNGKey, for reproducibility purpose.
-    :type random_key: jax.random.PRNGKeyArray
+    :param random_key: JAX random key, for reproducibility purpose.
+    :type random_key: jax.Array
     :param mutation_probability: The probability of having a mutation in a marker.
     :type mutation_probability: float
     :return: offspring population of shape (n, m, d).
@@ -43,7 +43,7 @@ def cross(
         >>> rec_vec = np.full((n_chr, chr_len), 1.5 / chr_len)
         >>> rec_vec[:, 0] = 0.5  # equal probability on starting haploid
         >>> rec_vec = rec_vec.flatten()
-        >>> random_key = jax.random.PRNGKey(42)
+        >>> random_key = jax.random.key(42)
         >>> f2 = functional.cross(parents, rec_vec, random_key)
         >>> f2.shape
         (50, 1000, 2)
@@ -52,7 +52,7 @@ def cross(
     random_keys = jax.random.split(
         random_key, num=2 * len(parents) * 2 * parents.shape[3]
     )
-    random_keys = random_keys.reshape(2, len(parents), 2, parents.shape[3], 2)
+    random_keys = random_keys.reshape(2, len(parents), 2, parents.shape[3])
     cross_random_key, mutate_random_key = random_keys
 
     offsprings = _cross(
@@ -71,8 +71,8 @@ def cross(
 def _cross(
     parent: Individual,
     recombination_vec: Float[Array, N_MARKERS],
-    cross_random_key: jax.random.PRNGKeyArray,
-    mutate_random_key: jax.random.PRNGKeyArray,
+    cross_random_key: jax.Array,
+    mutate_random_key: jax.Array,
     mutation_probability: float,
 ) -> Haploid:
     return _meiosis(
@@ -88,7 +88,7 @@ def double_haploid(
     population: Population["n"],
     n_offspring: int,
     recombination_vec: Float[Array, N_MARKERS],
-    random_key: jax.random.PRNGKeyArray,
+    random_key: jax.Array,
     mutation_probability: float = 0.0,
 ) -> Population["n n_offspring"]:
     """Computes the double haploid of the input population.
@@ -100,8 +100,8 @@ def double_haploid(
     :param recombination_vec: array of m probabilities.
         The i-th value represent the probability to recombine before the marker i.
     :type recombination_vec: ndarray
-    :param random_key: array of n PRNGKey, one for each individual.
-    :type random_key: jax.random.PRNGKeyArray
+    :param random_key: JAX random key, for reproducibility purpose.
+    :type random_key: jax.Array
     :param mutation_probability: The probability of having a mutation in a marker.
     :type mutation_probability: float
     :return: output population of shape (n, n_offspring, m, d).
@@ -118,7 +118,7 @@ def double_haploid(
         >>> rec_vec = np.full((n_chr, chr_len), 1.5 / chr_len)
         >>> rec_vec[:, 0] = 0.5  # equal probability on starting haploid
         >>> rec_vec = rec_vec.flatten()
-        >>> random_key = jax.random.PRNGKey(42)
+        >>> random_key = jax.random.key(42)
         >>> dh = functional.double_haploid(f1, 10, rec_vec, random_key)
         >>> dh.shape
         (50, 10, 1000, 2)
@@ -126,7 +126,7 @@ def double_haploid(
     population = population.reshape(*population.shape[:2], -1, 2)
     keys = jax.random.split(
         random_key, num=2 * len(population) * n_offspring * population.shape[2]
-    ).reshape(2, len(population), n_offspring, population.shape[2], 2)
+    ).reshape(2, len(population), n_offspring, population.shape[2])
     cross_random_key, mutate_random_key = keys
     haploids = _double_haploid(
         population,
@@ -145,8 +145,8 @@ def double_haploid(
 def _double_haploid(
     individual: Individual,
     recombination_vec: Float[Array, N_MARKERS],
-    cross_random_key: jax.random.PRNGKeyArray,
-    mutate_random_key: jax.random.PRNGKeyArray,
+    cross_random_key: jax.Array,
+    mutate_random_key: jax.Array,
     mutation_probability: float,
 ) -> Haploid:
     return _meiosis(
@@ -165,8 +165,8 @@ def _double_haploid(
 def _meiosis(
     individual: Individual,
     recombination_vec: Float[Array, N_MARKERS],
-    cross_random_key: jax.random.PRNGKeyArray,
-    mutate_random_key: jax.random.PRNGKeyArray,
+    cross_random_key: jax.Array,
+    mutate_random_key: jax.Array,
     mutation_probability: float,
 ) -> Haploid:
     samples = jax.random.uniform(cross_random_key, shape=recombination_vec.shape)
