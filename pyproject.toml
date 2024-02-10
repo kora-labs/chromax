@@ -21,7 +21,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     'Intended Audience :: Science/Research',
 ]
-dependencies = ["numpy", "pandas", "jax", "jaxlib", "jaxtyping"]
+dependencies = ["numpy", "pandas", "jax>=0.4.16", "jaxlib>=0.4.16", "jaxtyping"]
 dynamic = ["version"]
 
 [project.optional-dependencies]
