@@ -26,7 +26,7 @@ def cross(
         The i-th value represent the probability to recombine before the marker i.
     :type recombination_vec:
     :param random_key: JAX random key, for reproducibility purpose.
-    :type random_key: jax.Array 
+    :type random_key: jax.Array
     :param mutation_probability: The probability of having a mutation in a marker.
     :type mutation_probability: float
     :return: offspring population of shape (n, m, d).
