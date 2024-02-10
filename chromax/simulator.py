@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 from jax._src.lib import xla_client as xc
 from jaxtyping import Array, Float, Int
+from einops import rearrange
 
 from . import functional
 from .index_functions import conventional_index
@@ -43,6 +44,8 @@ class Simulator:
     :param h2: narrow-sense heritability value for each trait.
         The default value is 0.5 for each trait.
     :type h2: array of float
+    :param genotype_error: the probability of having a genotype error in a marker.
+    :type genotype_error: float
     :param seed: the random seed for reproducibility.
     :type seed: int
     :param device: the device for computing simulations. It will be automatically selected if not
@@ -70,6 +73,7 @@ class Simulator:
         recombination_column: str = "RecombRate",
         mutation_probability: float = 0.0,
         h2: Optional[np.ndarray] = None,
+        genotype_error: float = 0.0,
         seed: Optional[int] = None,
         device: xc.Device = None,
         backend: Union[str, xc._xla.Client] = None,
@@ -191,6 +195,7 @@ class Simulator:
             >>> f1.shape
             (371, 9839, 2)
         """
+        # Load vcfs
         population = np.load(file_name)
         return jax.device_put(population, device=self.device)
 
@@ -423,6 +428,7 @@ class Simulator:
         population: Population["_g n"],
         k: int,
         f_index: Optional[Callable[[Population["n"]], Float[Array, "n"]]] = None,
+        weighting: Optional[Float[Array, "n traits"]] = None,
     ) -> Tuple[Population["_g k"], Int[Array, "_g k"]]:
         """Function to select individuals based on their score (index).
 
@@ -456,16 +462,16 @@ class Simulator:
         if f_index is None:
             f_index = conventional_index(self.GEBV_model)
 
-        if len(population.shape) == 3:
+        if population.ndim == 3:
             select_f = functional.select
         elif len(population.shape) == 4:
-            select_f = jax.vmap(functional.select, in_axes=(0, None, None))
+            select_f = jax.vmap(functional.select, in_axes=(0, None, None, None))
         else:
             raise ValueError(
                 f"Unexpected shape {population.shape} for input population"
             )
 
-        return select_f(population, k, f_index)
+        return select_f(population, k, f_index, weighting)
 
     def GEBV(
         self, population: Population["n"], *, raw_array: bool = False

@@ -55,6 +55,20 @@ def test_select():
     assert np.min(f2_gebv) > np.min(f1_gebv)
 
 
+def test_select_with_weights():
+    n_markers, ploidy = 1000, 4
+    k = 10
+    n_traits = 7
+    pop_shape = (50, n_markers, ploidy)
+    f1 = np.random.choice([False, True], size=pop_shape)
+    marker_effects = np.random.randn(n_markers, n_traits)
+    gebv_model = TraitModel(marker_effects)
+    f_index = conventional_index(gebv_model)
+    weighting = np.random.randint(0, 10, size=n_traits)
+    weighting = weighting / np.sum(weighting)
+    f2, best_indices = functional.select(f1, k=k, f_index=f_index, weighting=weighting)
+
+
 def test_cross_mutation():
     n_markers, ploidy = 1000, 4
     zeros_pop = np.zeros((50, 2, n_markers, ploidy))

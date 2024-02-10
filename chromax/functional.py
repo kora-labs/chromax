@@ -5,6 +5,7 @@ from typing import Callable, Tuple
 import jax
 import jax.numpy as jnp
 from jaxtyping import Array, Float, Int
+from einops import reduce
 
 from .typing import N_MARKERS, Haploid, Individual, Parents, Population
 
@@ -187,6 +188,7 @@ def select(
     population: Population["n"],
     k: int,
     f_index: Callable[[Population["n"]], Float[Array, "n"]],
+    weighting: Float[Array, "n traits"] | None = None,
 ) -> Tuple[Population["k"], Int[Array, "k"]]:
     """Function to select individuals based on their score (index).
 
@@ -198,6 +200,8 @@ def select(
         The function accepts as input a population, i.e. and array of shape
         (n, m, 2) and returns an array of n float number.
     :type f_index: Callable
+    :param weigting: array of t float number to weight the traits.
+    :type weighting: ndarray
 
     :return: output population of shape (k, m, d), output indices of shape (k,)
     :rtype: tuple of two ndarrays
@@ -218,5 +222,11 @@ def select(
         (10, 1000, 2)
     """
     indices = f_index(population)
+    if weighting is not None:
+        assert weighting.shape[0] == indices.shape[1]
+        indices = jnp.dot(indices, weighting)
+        #indices = reduce(indicies * weighting, "n n_traits -> n", "sum")
+    else:
+        indices = indices[..., 0]
     _, best_pop = jax.lax.top_k(indices, k)
     return population[best_pop, :, :], best_pop

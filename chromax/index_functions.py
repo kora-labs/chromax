@@ -56,9 +56,8 @@ def visual_selection(simulator, noise_factor: int = 1, seed: int = None) -> Call
     return visual_selection_f
 
 
-def conventional_index(GEBV_model: TraitModel):
+def conventional_index(GEBV_model: TraitModel, ):
     """Function to select based on Genomic Estimated Breeding Value (GEBV).
-
     :param GEBV_model: GEBV model to estimate the genomic breeding value.
         It must return a single value for an individual, i.e. estimate a single trait.
     :type GEBV_model: chromax.TraitModel
@@ -67,10 +66,11 @@ def conventional_index(GEBV_model: TraitModel):
     :rtype: Callable[[Population["n"]], Float[Array, "n"]]
     """
 
-    def conventional_index_f(pop: Population["n"]) -> Float[Array, "n"]:
+    def conventional_index_f(pop: Population["n"], trait_index: int = 0) -> Float[Array, "n"]:
         gebv = GEBV_model(pop)
-        assert gebv.shape[-1] == 1
-        return gebv[..., 0]
+        #assert gebv.shape[-1] == 1
+        #return gebv[..., trait_index]
+        return gebv
 
     return conventional_index_f
 
