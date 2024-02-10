@@ -15,7 +15,7 @@ def test_cross(idx):
     parents = np.random.choice([False, True], size=parents_shape)
     rec_vec = np.zeros(n_markers)
     rec_vec[0] = idx
-    random_key = jax.random.PRNGKey(42)
+    random_key = jax.random.key(42)
     new_pop = functional.cross(parents, rec_vec, random_key)
 
     for i in range(ploidy):
@@ -28,7 +28,7 @@ def test_double_haploid():
     pop_shape = (50, n_chr * chr_len, ploidy)
     f1 = np.random.choice([False, True], size=pop_shape)
     rec_vec = np.full((n_chr * chr_len,), 1.5 / chr_len)
-    random_key = jax.random.PRNGKey(42)
+    random_key = jax.random.key(42)
     dh = functional.double_haploid(f1, n_offspring, rec_vec, random_key)
     assert dh.shape == (len(f1), n_offspring, n_chr * chr_len, ploidy)
 
@@ -76,7 +76,7 @@ def test_cross_mutation():
     rec_vec = np.full((n_markers,), 1.5e-2)
     cross = functional.cross
 
-    random_key = jax.random.PRNGKey(42)
+    random_key = jax.random.key(42)
     assert np.all(cross(zeros_pop, rec_vec, random_key) == 0)
     assert np.all(cross(zeros_pop, rec_vec, random_key, 1) == 1)
     mutated_pop = cross(zeros_pop, rec_vec, random_key, 0.5)
@@ -97,7 +97,7 @@ def test_dh_mutation():
     rec_vec = np.full((n_markers,), 1.5e-2)
     dh = functional.double_haploid
 
-    random_key = jax.random.PRNGKey(42)
+    random_key = jax.random.key(42)
     assert np.all(dh(zeros_pop, 10, rec_vec, random_key) == 0)
     assert np.all(dh(zeros_pop, 10, rec_vec, random_key, 1) == 1)
     mutated_pop = dh(zeros_pop, 10, rec_vec, random_key, 0.5)

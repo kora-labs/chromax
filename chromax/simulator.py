@@ -175,7 +175,7 @@ class Simulator:
         :param seed: random seed.
         :type seed: int
         """
-        self.random_key = jax.random.PRNGKey(seed)
+        self.random_key = jax.random.key(seed)
 
     def load_population(self, file_name: Union[Path, str]) -> Population["n"]:
         """Load a population from file.
@@ -276,7 +276,7 @@ class Simulator:
             >>> f1 = simulator.load_population(sample_data.genome)
             >>> weights = np.random.uniform(size=(10, len(f1), 2))
             >>> weights /= weights.sum(axis=1, keepdims=True)
-            >>> random_key = jax.random.PRNGKey(42)
+            >>> random_key = jax.random.key(42)
             >>> grad_value = grad_f(f1, weights, random_key)
             >>> grad_value.shape
             (10, 371, 2)
@@ -289,7 +289,7 @@ class Simulator:
         def diff_cross_f(
             population: Population["n"],
             cross_weights: Float[Array, "m n 2"],
-            random_key: jax.random.PRNGKeyArray,
+            random_key: jax.Array,
         ) -> Population["m"]:
             population = population.reshape(*population.shape[:-1], -1, 2)
             keys_shape = len(cross_weights), len(population), 2, population.shape[-2]
