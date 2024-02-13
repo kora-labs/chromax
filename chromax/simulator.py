@@ -78,6 +78,7 @@ class Simulator:
         device: xc.Device = None,
         backend: Union[str, xc._xla.Client] = None,
     ):
+        # :TODO add genotype error
         """Initialization method. See class docstring for information about parameters."""
         self.random_key = None
         if seed is None:

@@ -223,6 +223,7 @@ def select(
     """
     indices = f_index(population)
     if weighting is not None:
+        print(indices.shape)
         assert weighting.shape[0] == indices.shape[1]
         indices = jnp.dot(indices, weighting)
     else:
