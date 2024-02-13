@@ -225,7 +225,6 @@ def select(
     if weighting is not None:
         assert weighting.shape[0] == indices.shape[1]
         indices = jnp.dot(indices, weighting)
-        #indices = reduce(indicies * weighting, "n n_traits -> n", "sum")
     else:
         indices = indices[..., 0]
     _, best_pop = jax.lax.top_k(indices, k)
