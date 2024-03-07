@@ -1,11 +1,11 @@
 """Functional module."""
 from functools import partial
 from typing import Callable, Tuple
+from einops import rearrange
 
 import jax
 import jax.numpy as jnp
 from jaxtyping import Array, Float, Int
-from einops import reduce
 
 from .typing import N_MARKERS, Haploid, Individual, Parents, Population
 
@@ -49,7 +49,11 @@ def cross(
         >>> f2.shape
         (50, 1000, 2)
     """
-    parents = parents.reshape(*parents.shape[:3], -1, 2)
+    # Handling non-diploids
+    # Gemini's answer 
+    #parents = einops.rearrange(parents, 'n two m d -> n two m (d 2)') 
+    parents = rearrange(parents, "n p m (pl two) -> n p m pl two", two=2)
+    #parents = parents.reshape(*parents.shape[:3], -1, 2)
     random_keys = jax.random.split(
         random_key, num=2 * len(parents) * 2 * parents.shape[3]
     )
@@ -63,6 +67,7 @@ def cross(
         mutate_random_key,
         mutation_probability,
     )
+    print(offsprings.shape)
     return offsprings.reshape(*offsprings.shape[:-2], -1)
 
 
@@ -223,10 +228,10 @@ def select(
     """
     indices = f_index(population)
     if weighting is not None:
-        print(indices.shape)
         assert weighting.shape[0] == indices.shape[1]
         indices = jnp.dot(indices, weighting)
-    else:
+    elif indices.ndim > 1:
         indices = indices[..., 0]
+    else: pass
     _, best_pop = jax.lax.top_k(indices, k)
     return population[best_pop, :, :], best_pop
