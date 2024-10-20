@@ -74,6 +74,7 @@ def test_cross_mutation():
     zeros_pop = np.zeros((50, 2, n_markers, ploidy))
     ones_pop = np.ones((50, 2, n_markers, ploidy))
     rec_vec = np.full((n_markers,), 1.5e-2)
+    mutation_mask = np.ones(n_markers, dtype=np.bool_)
     cross = functional.cross
 
     random_key = jax.random.key(42)
@@ -88,6 +89,15 @@ def test_cross_mutation():
     mutated_pop = cross(ones_pop, rec_vec, random_key, 0.5)
     assert np.count_nonzero(mutated_pop) > 0
     assert np.count_nonzero(1 - mutated_pop) > 0
+
+    mutation_mask = np.ones(n_markers, dtype=np.bool_)
+    mutated_pop_mask = cross(zeros_pop, rec_vec, random_key, 0.5, mutation_mask)
+    assert np.count_nonzero(mutated_pop_mask) > 0
+    assert np.count_nonzero(1 - mutated_pop_mask) > 0
+    
+    mutation_mask = np.zeros(n_markers, dtype=np.bool_)
+    mutated_pop_mask = cross(zeros_pop, rec_vec, random_key, 0.5, mutation_mask)
+    assert np.count_nonzero(mutated_pop_mask) == 0 
 
 
 def test_dh_mutation():

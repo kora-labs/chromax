@@ -5,3 +5,4 @@ __pycache__/
 venv
 docs/_build
 docs/.DS_Store
+build/

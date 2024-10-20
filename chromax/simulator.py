@@ -72,6 +72,7 @@ class Simulator:
         position_column: str = "cM",
         recombination_column: str = "RecombRate",
         mutation_probability: float = 0.0,
+        mutation_mask_index: Optional[np.ndarray] = None,
         h2: Optional[np.ndarray] = None,
         genotype_error: float = 0.0,
         seed: Optional[int] = None,
@@ -163,6 +164,7 @@ class Simulator:
                 f"mutation must be between 0 and 1, but got {mutation_probability}"
             )
         self.mutation_probability = mutation_probability
+        self.mutation_mask_index = mutation_mask_index
 
         first_mrk_map = np.zeros(len(chr_map), dtype="bool")
         first_mrk_map[1:] = chr_map.iloc[1:].values != chr_map.iloc[:-1].values
