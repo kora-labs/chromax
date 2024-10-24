@@ -2,4 +2,4 @@
 import setuptools
 
 
-setuptools.setup(name="chromax", version="0.0.3a")
+setuptools.setup(name="chromax", version="0.0.4a")
