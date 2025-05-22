@@ -248,7 +248,11 @@ class Simulator:
         """
         self.random_key, split_key = jax.random.split(self.random_key)
         return functional.cross(
-            parents, self.recombination_vec, split_key, self.mutation_probability
+            parents,
+            self.recombination_vec,
+            split_key,
+            self.mutation_probability,
+            mutation_index_mask=self.mutation_mask_index,
         )
 
     @property
@@ -335,6 +339,7 @@ class Simulator:
             self.recombination_vec,
             split_key,
             self.mutation_probability,
+            mutation_index_mask=self.mutation_mask_index,
         )
 
         if n_offspring == 1:
