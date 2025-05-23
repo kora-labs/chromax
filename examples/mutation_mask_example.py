@@ -7,13 +7,13 @@ import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 from chromax import Simulator
-import chromax.functional 
+import chromax.functional
 
 # --- 1. Define parameters ---
 N_INDIVIDUALS = 10
-N_MARKERS = 100 
-MUTATION_PROBABILITY = 1.0 
-INITIAL_SEED = 42 
+N_MARKERS = 100
+MUTATION_PROBABILITY = 1.0
+INITIAL_SEED = 42
 PLOIDY = 2
 
 # --- 2. Create a mutation_mask_index ---
@@ -26,8 +26,10 @@ mutation_mask_index[N_MARKERS // 2 :] = True
 # --- 3. Create a genetic_map ---
 genetic_map_data = {
     "CHR.PHYS": np.ones(N_MARKERS, dtype=int),
-    "cM": np.arange(N_MARKERS, dtype=float) * 1.0, # Dummy cM values
-    "Yield": np.random.default_rng(INITIAL_SEED).normal(size=N_MARKERS), # Example trait
+    "cM": np.arange(N_MARKERS, dtype=float) * 1.0,  # Dummy cM values
+    "Yield": np.random.default_rng(INITIAL_SEED).normal(
+        size=N_MARKERS
+    ),  # Example trait
 }
 genetic_map = pd.DataFrame(genetic_map_data)
 
@@ -64,12 +66,16 @@ parent_indices = jnp.array([parent1_idx, parent2_idx])
 parents = jnp.take(initial_population, parent_indices, axis=0)
 # Reshape to (1, 2, N_MARKERS, PLOIDY) for one cross with two parents
 parents_for_cross = parents.reshape(1, 2, N_MARKERS, PLOIDY)
-print('Parents shape')
+print("Parents shape")
 print(parents_for_cross.shape)
 # parents_for_cross now has shape (1, 2, N_MARKERS, PLOIDY)
 
-print(f"Selected Parent 1 (idx {parent1_idx}) genome shape: {initial_population[parent1_idx].shape}")
-print(f"Selected Parent 2 (idx {parent2_idx}) genome shape: {initial_population[parent2_idx].shape}")
+print(
+    f"Selected Parent 1 (idx {parent1_idx}) genome shape: {initial_population[parent1_idx].shape}"
+)
+print(
+    f"Selected Parent 2 (idx {parent2_idx}) genome shape: {initial_population[parent2_idx].shape}"
+)
 print(f"Parents array for cross shape: {parents_for_cross.shape}\n")
 
 # --- 8. Perform cross with NO MUTATION ---
@@ -82,33 +88,39 @@ offspring_no_mutation = chromax.functional.cross(
     parents_for_cross,
     simulator_base.recombination_vec,
     key_for_cross,
-    mutation_probability=0.0
+    mutation_probability=0.0,
 )
 # offspring_no_mutation has shape (1, N_MARKERS, PLOIDY) because 1 cross was made.
-offspring1_no_mut_genome = offspring_no_mutation[0] # Genome of the first (and only) offspring
+offspring1_no_mut_genome = offspring_no_mutation[
+    0
+]  # Genome of the first (and only) offspring
 
 # --- 9. Perform cross WITH MUTATION and MASK ---
 print("\nPerforming cross WITH MUTATION and MASK...")
 offspring_with_mutation = chromax.functional.cross(
     parents_for_cross,
-    simulator_base.recombination_vec, 
-    key_for_cross, 
-    mutation_probability=MUTATION_PROBABILITY, 
-    mutation_index_mask=mutation_mask_index 
+    simulator_base.recombination_vec,
+    key_for_cross,
+    mutation_probability=MUTATION_PROBABILITY,
+    mutation_index_mask=mutation_mask_index,
 )
-offspring1_with_mut_genome = offspring_with_mutation[0] # Genome of the first offspring
+offspring1_with_mut_genome = offspring_with_mutation[0]  # Genome of the first offspring
 
-c1 = jax.random.uniform(key_for_cross, shape=simulator_base.recombination_vec.shape) 
+c1 = jax.random.uniform(key_for_cross, shape=simulator_base.recombination_vec.shape)
 c2 = jax.random.uniform(key_for_cross, shape=simulator_base.recombination_vec.shape)
-print('Checking array uniform equality')
+print("Checking array uniform equality")
 print(jnp.array_equal(c1, c2))
 
 
 # --- 10. Compare offspring genomes locus by locus ---
 print("\n--- Comparing Offspring Genomes ---")
-print(f"Mutation Mask (True = mutations CAN occur, False = mutations CANNOT occur): \n{mutation_mask_index}")
+print(
+    f"Mutation Mask (True = mutations CAN occur, False = mutations CANNOT occur): \n{mutation_mask_index}"
+)
 print(f"Offspring (No Mutation) first 10 loci: \n{offspring1_no_mut_genome[:10, :]}")
-print(f"Offspring (With Mutation & Mask) first 10 loci: \n{offspring1_with_mut_genome[:10, :]}\n")
+print(
+    f"Offspring (With Mutation & Mask) first 10 loci: \n{offspring1_with_mut_genome[:10, :]}\n"
+)
 
 mismatches_in_protected = 0
 mutations_as_expected = 0
@@ -128,39 +140,59 @@ for locus in range(N_MARKERS):
         # For loci with MUTATION_PROBABILITY = 1.0, each allele in the gametes
         # contributing to offspring_no_mut_locus should flip due to mutation.
         # Therefore, offspring_with_mut_locus should be element-wise (1 - offspring_no_mut_locus).
-        expected_genome_after_mutation = 1 - genome_no_mut_locus # Element-wise flip
+        expected_genome_after_mutation = 1 - genome_no_mut_locus  # Element-wise flip
 
         if jnp.array_equal(genome_with_mut_locus, expected_genome_after_mutation):
             mutations_as_expected += 1
         else:
             print(f"ERROR at mutable locus {locus} (mutation_mask_index=True):")
             print(f"  Offspring (no mutation):    {genome_no_mut_locus}")
-            print(f"  Expected (with mutation):   {expected_genome_after_mutation} (element-wise 1 - no_mutation)")
+            print(
+                f"  Expected (with mutation):   {expected_genome_after_mutation} (element-wise 1 - no_mutation)"
+            )
             print(f"  Got (with mutation):        {genome_with_mut_locus}")
-            unexpected_behavior +=1
+            unexpected_behavior += 1
 
 print(f"\nSummary of Test Results:")
 print(f"Number of loci: {N_MARKERS}")
-print(f"Number of mutable loci (mutation_mask_index=True): {np.sum(mutation_mask_index)}")
-print(f"Number of protected loci (mutation_mask_index=False): {N_MARKERS - np.sum(mutation_mask_index)}")
+print(
+    f"Number of mutable loci (mutation_mask_index=True): {np.sum(mutation_mask_index)}"
+)
+print(
+    f"Number of protected loci (mutation_mask_index=False): {N_MARKERS - np.sum(mutation_mask_index)}"
+)
 
-print(f"\nChecks for protected regions (mutation_mask_index=False):")
+print("\nChecks for protected regions (mutation_mask_index=False):")
 if mismatches_in_protected == 0:
     print("  OK: No mutations detected in protected regions.")
 else:
-    print(f"  ERROR: {mismatches_in_protected} protected loci showed mutations when they shouldn't have.")
+    print(
+        f"  ERROR: {mismatches_in_protected} protected loci showed mutations when they shouldn't have."
+    )
 
-print(f"\nChecks for mutable regions (mutation_mask_index=True, MUTATION_PROBABILITY = {MUTATION_PROBABILITY}):")
-print(f"  Number of loci where mutation resulted in expected element-wise flipped alleles: {mutations_as_expected}")
-print(f"  Number of loci with unexpected allele states in mutable region: {unexpected_behavior}")
+print(
+    f"\nChecks for mutable regions (mutation_mask_index=True, MUTATION_PROBABILITY = {MUTATION_PROBABILITY}):"
+)
+print(
+    f"  Number of loci where mutation resulted in expected element-wise flipped alleles: {mutations_as_expected}"
+)
+print(
+    f"  Number of loci with unexpected allele states in mutable region: {unexpected_behavior}"
+)
 
 # Final Assertions
-assert mismatches_in_protected == 0, "FAIL: Mutations occurred in protected regions (mutation_mask_index=False)."
+assert (
+    mismatches_in_protected == 0
+), "FAIL: Mutations occurred in protected regions (mutation_mask_index=False)."
 # For mutable regions with MUTATION_PROBABILITY = 1.0, all loci should show the flipped behavior.
-assert unexpected_behavior == 0, \
-    f"FAIL: Unexpected behavior in mutable regions for {unexpected_behavior} loci. All should have flipped alleles."
-assert mutations_as_expected == np.sum(mutation_mask_index), \
-    "FAIL: Not all mutable loci showed the expected flipped allele behavior."
+assert (
+    unexpected_behavior == 0
+), f"FAIL: Unexpected behavior in mutable regions for {unexpected_behavior} loci. All should have flipped alleles."
+assert mutations_as_expected == np.sum(
+    mutation_mask_index
+), "FAIL: Not all mutable loci showed the expected flipped allele behavior."
 
 print("\nRobust `mutation_mask_index` test completed.")
-print("If all assertions passed, the mask is working as expected with functional.cross.")
+print(
+    "If all assertions passed, the mask is working as expected with functional.cross."
+)

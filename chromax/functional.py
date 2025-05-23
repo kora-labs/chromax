@@ -1,4 +1,5 @@
 """Functional module."""
+
 from functools import partial
 from typing import Callable, Tuple
 from einops import rearrange
@@ -9,6 +10,7 @@ from jaxtyping import Array, Float, Int, Bool
 from typing import Optional
 
 from .typing import N_MARKERS, Haploid, Individual, Parents, Population
+
 
 @jax.jit
 def cross(
@@ -31,8 +33,8 @@ def cross(
     :type random_key: jax.Array
     :param mutation_probability: The probability of having a mutation in a marker.
     :type mutation_probability: float
-    :param mutation_index_mask: Mask for whether mutations can occur at the locus of shape (n_markers).
-        A True value indicates that a mutation can occur there. 
+    :param mutation_index_mask: Mask for whether mutations can occur at the locus of
+        shape (n_markers). A True value indicates that a mutation can occur there.
     :type mutation_index_mask: ndarray[bool]
     :return: offspring population of shape (n, m, d).
     :rtype: ndarray
@@ -54,7 +56,7 @@ def cross(
         (50, 1000, 2)
     """
     parents = rearrange(parents, "n p m (pl two) -> n p m pl two", two=2)
-    #parents = parents.reshape(*parents.shape[:3], -1, 2)
+    # parents = parents.reshape(*parents.shape[:3], -1, 2)
     random_keys = jax.random.split(
         random_key, num=2 * len(parents) * 2 * parents.shape[3]
     )
@@ -64,7 +66,6 @@ def cross(
 
     if mutation_index_mask is None:
         mutation_index_mask = jnp.ones_like(recombination_vec, dtype=jnp.bool_)
-        
 
     offsprings = _cross(
         parents,
@@ -78,21 +79,24 @@ def cross(
     return offsprings.reshape(*offsprings.shape[:-2], -1)
 
 
-@jax.jit 
+@jax.jit
 def meiosis_only(
     breeding_pop: Population["n"],
     recombination_vec: Float[Array, N_MARKERS],
     random_key: jax.Array,
     mutation_probability: float = 0.0,
     mutation_index_mask: Optional[Bool[Array, N_MARKERS]] = None,
-) -> Population["n"]: 
-    """ Convnience function for only doing meiosis and returning the haploids for selection
+) -> Population["n"]:
+    """Convnience function for only doing meiosis and returning the haploids for
+    selection.
 
-    Essentially the same params as cross, but only returns the haploids, and no crosses just meiosis. 
+    Essentially the same params as cross, but only returns the haploids,
+    and no crosses just meiosis.
     """
     breeding_pop = rearrange(breeding_pop, "n m (pl two) -> n m pl two", two=2)
     random_keys = jax.random.split(
-        random_key, num= 2 * len(breeding_pop) * breeding_pop.shape[2])
+        random_key, num=2 * len(breeding_pop) * breeding_pop.shape[2]
+    )
     random_keys = random_keys.reshape(2, len(breeding_pop), breeding_pop.shape[2])
     cross_random_key, mutate_random_key = random_keys
 
@@ -106,11 +110,13 @@ def meiosis_only(
         mutation_probability,
         mutation_index_mask,
     )
-    return haploids 
+    return haploids
 
 
 @jax.jit
-@partial(jax.vmap, in_axes=(0, None, 0, 0, None, None)) # Parallelize across individuals
+@partial(
+    jax.vmap, in_axes=(0, None, 0, 0, None, None)
+)  # Parallelize across individuals
 def _meiosis_only(
     ind: Individual,
     recombination_vec: Float[Array, N_MARKERS],
@@ -130,8 +136,12 @@ def _meiosis_only(
 
 
 @jax.jit
-@partial(jax.vmap, in_axes=(0, None, 0, 0, None, None))  # parallelize across individuals
-@partial(jax.vmap, in_axes=(0, None, 0, 0, None, None), out_axes=2)  # parallelize parents
+@partial(
+    jax.vmap, in_axes=(0, None, 0, 0, None, None)
+)  # parallelize across individuals
+@partial(
+    jax.vmap, in_axes=(0, None, 0, 0, None, None), out_axes=2
+)  # parallelize parents
 def _cross(
     parent: Individual,
     recombination_vec: Float[Array, N_MARKERS],
@@ -210,8 +220,12 @@ def double_haploid(
 
 
 @jax.jit
-@partial(jax.vmap, in_axes=(0, None, 0, 0, None, None))  # parallelize across individuals
-@partial(jax.vmap, in_axes=(None, None, 0, 0, None, None))  # parallelize across offsprings
+@partial(
+    jax.vmap, in_axes=(0, None, 0, 0, None, None)
+)  # parallelize across individuals
+@partial(
+    jax.vmap, in_axes=(None, None, 0, 0, None, None)
+)  # parallelize across offsprings
 def _double_haploid(
     individual: Individual,
     recombination_vec: Float[Array, N_MARKERS],
@@ -230,11 +244,8 @@ def _double_haploid(
     )
 
 
-
 @jax.jit
-@partial(
-    jax.vmap, in_axes=(1, None, 0, 0, None, None), out_axes=1
-)
+@partial(jax.vmap, in_axes=(1, None, 0, 0, None, None), out_axes=1)
 def _meiosis(
     individual: Individual,
     recombination_vec: Float[Array, N_MARKERS],
@@ -249,7 +260,7 @@ def _meiosis(
 
     crossover_mask = crossover_mask.astype(jnp.int8)
     haploid = jnp.take_along_axis(individual, crossover_mask[:, None], axis=-1)
-    
+
     mutation_samples = jax.random.uniform(mutate_random_key, shape=haploid.shape)
     mutation_prob_mask = mutation_samples < mutation_probability
     mutation_index_mask = mutation_index_mask[:, None]
@@ -257,7 +268,6 @@ def _meiosis(
     haploid = jnp.where(mutation_sites, 1 - haploid, haploid)
 
     return haploid.squeeze()
-
 
 
 def select(
@@ -303,6 +313,7 @@ def select(
         indices = jnp.dot(indices, weighting)
     elif indices.ndim > 1:
         indices = indices[..., 0]
-    else: pass
+    else:
+        pass
     _, best_pop = jax.lax.top_k(indices, k)
     return population[best_pop, :, :], best_pop
