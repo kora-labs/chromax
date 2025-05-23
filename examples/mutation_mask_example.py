@@ -23,7 +23,7 @@ PLOIDY = 2
 # - False: MASKED (mutations cannot occur).
 mutation_mask_index = np.zeros(N_MARKERS, dtype=bool)
 mutation_mask_index[: N_MARKERS // 2] = False
-mutation_mask_index[N_MARKERS // 2:] = True
+mutation_mask_index[N_MARKERS // 2 :] = True
 
 # --- 3. Create a genetic_map ---
 genetic_map_data = {
@@ -116,9 +116,7 @@ print(jnp.array_equal(c1, c2))
 
 # --- 10. Compare offspring genomes locus by locus ---
 print("\n--- Comparing Offspring Genomes ---")
-print(
-    f"Mutation Mask: \n{mutation_mask_index}"
-)
+print(f"Mutation Mask: \n{mutation_mask_index}")
 print(f"Offspring (No Mutation) first 10 loci: \n{offspring1_no_mut_genome[:10, :]}")
 print(
     f"Offspring (With Mutation & Mask) first 10 loci: \n{offspring1_with_mut_genome[:10, :]}\n"
@@ -132,9 +130,9 @@ for locus in range(N_MARKERS):
     genome_no_mut_locus = offspring1_no_mut_genome[locus, :]
     genome_with_mut_locus = offspring1_with_mut_genome[locus, :]
 
-    if not mutation_mask_index[locus]:  # This locus is protected from mutation
+    if not mutation_mask_index[locus]:
         if not jnp.array_equal(genome_with_mut_locus, genome_no_mut_locus):
-            print(f"ERROR at protected locus {locus} (mutation_mask_index=False):")
+            print(f"ERROR at protected locus {locus} (mutation_mask_index=False): ")
             print(f"  Expected (no mutation): {genome_no_mut_locus}")
             print(f"  Got (with mutation):    {genome_with_mut_locus}")
             mismatches_in_protected += 1
@@ -155,24 +153,18 @@ for locus in range(N_MARKERS):
 
 print("\nSummary of Test Results: ")
 print(f"Number of loci: {N_MARKERS}")
-print(
-    f"Number of mutable loci: {np.sum(mutation_mask_index)}"
-)
-print(
-    f"Number of protected loci: {N_MARKERS - np.sum(mutation_mask_index)}"
-)
+print(f"Number of mutable loci: {np.sum(mutation_mask_index)}")
+print(f"Number of protected loci: {N_MARKERS - np.sum(mutation_mask_index)}")
 
 print("\nChecks for protected regions (mutation_mask_index=False): ")
 if mismatches_in_protected == 0:
     print("  OK: No mutations detected in protected regions.")
 else:
-    print(
-        f"  ERROR: {mismatches_in_protected} protected loci showed mutations when they shouldn't have."
-    )
+    print(f"  ERROR: {mismatches_in_protected} protected loci showed mutations.")
 
 print(f"\nChecks for mutable regions (MUTATION_PROBABILITY = {MUTATION_PROBABILITY}): ")
 print(
-    f"  Number of loci where mutation resulted in expected element-wise flipped alleles: {mutations_as_expected}"
+    f"  # of loci where expected element-wise flipped alleles: {mutations_as_expected}"
 )
 print(
     f"  Number of loci with unexpected allele states in mutable region: {unexpected_behavior}"
