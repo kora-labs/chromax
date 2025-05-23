@@ -8,14 +8,13 @@ build-backend = "setuptools.build_meta"
 name = "chromax"
 description = "Breeding simulator based on JAX"
 readme = "README.md"
-requires-python = ">= 3.9"
+requires-python = ">= 3.10"
 authors = [{ name = "Omar G. Younis", email = "omar.younis98@gmail.com" }]
 license = { text = "BSD-3-Clause" }
 keywords = ["Breeding", "simulator", "JAX", "chromosome", "genetics", "bioinformatics",]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     'Intended Audience :: Science/Research',
