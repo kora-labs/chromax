@@ -6,8 +6,10 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pandas as pd
-from chromax import Simulator
+
 import chromax.functional
+from chromax import Simulator
+
 
 # --- 1. Define parameters ---
 N_INDIVIDUALS = 10
@@ -21,7 +23,7 @@ PLOIDY = 2
 # - False: MASKED (mutations cannot occur).
 mutation_mask_index = np.zeros(N_MARKERS, dtype=bool)
 mutation_mask_index[: N_MARKERS // 2] = False
-mutation_mask_index[N_MARKERS // 2 :] = True
+mutation_mask_index[N_MARKERS // 2:] = True
 
 # --- 3. Create a genetic_map ---
 genetic_map_data = {
@@ -115,7 +117,7 @@ print(jnp.array_equal(c1, c2))
 # --- 10. Compare offspring genomes locus by locus ---
 print("\n--- Comparing Offspring Genomes ---")
 print(
-    f"Mutation Mask (True = mutations CAN occur, False = mutations CANNOT occur): \n{mutation_mask_index}"
+    f"Mutation Mask: \n{mutation_mask_index}"
 )
 print(f"Offspring (No Mutation) first 10 loci: \n{offspring1_no_mut_genome[:10, :]}")
 print(
@@ -145,7 +147,7 @@ for locus in range(N_MARKERS):
         if jnp.array_equal(genome_with_mut_locus, expected_genome_after_mutation):
             mutations_as_expected += 1
         else:
-            print(f"ERROR at mutable locus {locus} (mutation_mask_index=True): ")
+            print(f"ERROR at mutable locus {locus}: ")
             print(f"  Offspring (no mutation):    {genome_no_mut_locus}")
             print(f"  Expected (with mutation):   {expected_genome_after_mutation}")
             print(f"  Got (with mutation):        {genome_with_mut_locus}")
@@ -154,10 +156,10 @@ for locus in range(N_MARKERS):
 print("\nSummary of Test Results: ")
 print(f"Number of loci: {N_MARKERS}")
 print(
-    f"Number of mutable loci (mutation_mask_index=True): {np.sum(mutation_mask_index)}"
+    f"Number of mutable loci: {np.sum(mutation_mask_index)}"
 )
 print(
-    f"Number of protected loci (mutation_mask_index=False): {N_MARKERS - np.sum(mutation_mask_index)}"
+    f"Number of protected loci: {N_MARKERS - np.sum(mutation_mask_index)}"
 )
 
 print("\nChecks for protected regions (mutation_mask_index=False): ")
@@ -181,7 +183,7 @@ assert mismatches_in_protected == 0, "FAIL: Mutations occurred in protected regi
 # For mutable regions with MUTATION_PROBABILITY = 1.0, all loci should show the flipped behavior.
 assert (
     unexpected_behavior == 0
-), f"FAIL: Unexpected behavior in mutable regions for {unexpected_behavior} loci. All should have flipped alleles."
+), f"FAIL: Unexpected behavior in mutable regions for {unexpected_behavior} loci."
 assert mutations_as_expected == np.sum(
     mutation_mask_index
 ), "FAIL: Not all mutable loci showed the expected flipped allele behavior."

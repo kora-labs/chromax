@@ -1,13 +1,12 @@
 """Functional module."""
 
 from functools import partial
-from typing import Callable, Tuple
-from einops import rearrange
+from typing import Callable, Optional, Tuple
 
 import jax
 import jax.numpy as jnp
-from jaxtyping import Array, Float, Int, Bool
-from typing import Optional
+from einops import rearrange
+from jaxtyping import Array, Bool, Float, Int
 
 from .typing import N_MARKERS, Haploid, Individual, Parents, Population
 
