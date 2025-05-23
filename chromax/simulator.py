@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 from jax._src.lib import xla_client as xc
 from jaxtyping import Array, Float, Int
-from einops import rearrange
 
 from . import functional
 from .index_functions import conventional_index
@@ -248,7 +247,11 @@ class Simulator:
         """
         self.random_key, split_key = jax.random.split(self.random_key)
         return functional.cross(
-            parents, self.recombination_vec, split_key, self.mutation_probability
+            parents,
+            self.recombination_vec,
+            split_key,
+            self.mutation_probability,
+            mutation_index_mask=self.mutation_mask_index,
         )
 
     @property
@@ -335,6 +338,7 @@ class Simulator:
             self.recombination_vec,
             split_key,
             self.mutation_probability,
+            mutation_index_mask=self.mutation_mask_index,
         )
 
         if n_offspring == 1:
