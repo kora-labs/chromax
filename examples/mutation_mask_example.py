@@ -140,20 +140,18 @@ for locus in range(N_MARKERS):
         # For loci with MUTATION_PROBABILITY = 1.0, each allele in the gametes
         # contributing to offspring_no_mut_locus should flip due to mutation.
         # Therefore, offspring_with_mut_locus should be element-wise (1 - offspring_no_mut_locus).
-        expected_genome_after_mutation = 1 - genome_no_mut_locus  # Element-wise flip
+        expected_genome_after_mutation = 1 - genome_no_mut_locus
 
         if jnp.array_equal(genome_with_mut_locus, expected_genome_after_mutation):
             mutations_as_expected += 1
         else:
-            print(f"ERROR at mutable locus {locus} (mutation_mask_index=True):")
+            print(f"ERROR at mutable locus {locus} (mutation_mask_index=True): ")
             print(f"  Offspring (no mutation):    {genome_no_mut_locus}")
-            print(
-                f"  Expected (with mutation):   {expected_genome_after_mutation} (element-wise 1 - no_mutation)"
-            )
+            print(f"  Expected (with mutation):   {expected_genome_after_mutation}")
             print(f"  Got (with mutation):        {genome_with_mut_locus}")
             unexpected_behavior += 1
 
-print(f"\nSummary of Test Results:")
+print("\nSummary of Test Results: ")
 print(f"Number of loci: {N_MARKERS}")
 print(
     f"Number of mutable loci (mutation_mask_index=True): {np.sum(mutation_mask_index)}"
@@ -162,7 +160,7 @@ print(
     f"Number of protected loci (mutation_mask_index=False): {N_MARKERS - np.sum(mutation_mask_index)}"
 )
 
-print("\nChecks for protected regions (mutation_mask_index=False):")
+print("\nChecks for protected regions (mutation_mask_index=False): ")
 if mismatches_in_protected == 0:
     print("  OK: No mutations detected in protected regions.")
 else:
@@ -170,9 +168,7 @@ else:
         f"  ERROR: {mismatches_in_protected} protected loci showed mutations when they shouldn't have."
     )
 
-print(
-    f"\nChecks for mutable regions (mutation_mask_index=True, MUTATION_PROBABILITY = {MUTATION_PROBABILITY}):"
-)
+print(f"\nChecks for mutable regions (MUTATION_PROBABILITY = {MUTATION_PROBABILITY}): ")
 print(
     f"  Number of loci where mutation resulted in expected element-wise flipped alleles: {mutations_as_expected}"
 )
@@ -181,9 +177,7 @@ print(
 )
 
 # Final Assertions
-assert (
-    mismatches_in_protected == 0
-), "FAIL: Mutations occurred in protected regions (mutation_mask_index=False)."
+assert mismatches_in_protected == 0, "FAIL: Mutations occurred in protected regions."
 # For mutable regions with MUTATION_PROBABILITY = 1.0, all loci should show the flipped behavior.
 assert (
     unexpected_behavior == 0

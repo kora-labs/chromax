@@ -87,11 +87,27 @@ def meiosis_only(
     mutation_probability: float = 0.0,
     mutation_index_mask: Optional[Bool[Array, N_MARKERS]] = None,
 ) -> Population["n"]:
-    """Convnience function for only doing meiosis and returning the haploids for
-    selection.
+    """Convenience function for performing meiosis and returning haploids for selection.
 
-    Essentially the same params as cross, but only returns the haploids,
-    and no crosses just meiosis.
+    This function performs meiosis on a breeding population to produce haploids
+    without performing crosses. It has the same parameters as the cross function
+    but only returns the haploids resulting from meiosis.
+
+    :param breeding_pop: The breeding population of shape (n, m, d), where n is the
+        number of individuals, m is the number of markers, and d is the ploidy.
+    :type breeding_pop: ndarray
+    :param recombination_vec: Array of m probabilities. The i-th value represents
+        the probability to recombine before the marker i.
+    :type recombination_vec: ndarray
+    :param random_key: JAX random key, for reproducibility purpose.
+    :type random_key: jax.Array
+    :param mutation_probability: The probability of having a mutation in a marker.
+    :type mutation_probability: float
+    :param mutation_index_mask: Mask for whether mutations can occur at the locus of
+        shape (n_markers). A True value indicates that a mutation can occur there.
+    :type mutation_index_mask: ndarray[bool]
+    :return: Haploid population of shape (n, m, d/2).
+    :rtype: ndarray
     """
     breeding_pop = rearrange(breeding_pop, "n m (pl two) -> n m pl two", two=2)
     random_keys = jax.random.split(

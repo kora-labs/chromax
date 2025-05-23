@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 from jax._src.lib import xla_client as xc
 from jaxtyping import Array, Float, Int
-from einops import rearrange
 
 from . import functional
 from .index_functions import conventional_index

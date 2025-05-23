@@ -61,6 +61,7 @@ def conventional_index(
     GEBV_model: TraitModel,
 ):
     """Function to select based on Genomic Estimated Breeding Value (GEBV).
+
     :param GEBV_model: GEBV model to estimate the genomic breeding value.
         It must return a single value for an individual, i.e. estimate a single trait.
     :type GEBV_model: chromax.TraitModel
