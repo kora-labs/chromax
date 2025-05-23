@@ -31,6 +31,9 @@ def cross(
     :type random_key: jax.Array
     :param mutation_probability: The probability of having a mutation in a marker.
     :type mutation_probability: float
+    :param mutation_index_mask: Mask for whether mutations can occur at the locus of shape (n_markers).
+        A True value indicates that a mutation can occur there. 
+    :type mutation_index_mask: ndarray[bool]
     :return: offspring population of shape (n, m, d).
     :rtype: ndarray
 
@@ -50,35 +53,24 @@ def cross(
         >>> f2.shape
         (50, 1000, 2)
     """
-    parents_rearranged = rearrange(parents, "n p m (pl two) -> n p m pl two", two=2)
-    # parents_rearranged shape is (n_crosses, n_parents_per_cross, n_markers, 1, 2)
-    
-    n_crosses = parents_rearranged.shape[0]
-    n_parents_per_cross = parents_rearranged.shape[1] # Should be 2
+    parents = rearrange(parents, "n p m (pl two) -> n p m pl two", two=2)
+    #parents = parents.reshape(*parents.shape[:3], -1, 2)
+    random_keys = jax.random.split(
+        random_key, num=2 * len(parents) * 2 * parents.shape[3]
+    )
 
-    # Generate a master key for recombination events and one for mutation events
-    key_for_recomb_master, key_for_mutation_master = jax.random.split(random_key, 2)
-
-    # Generate specific keys for each meiosis: one for recombination, one for mutation
-    cross_random_key_array = jax.random.split(
-        key_for_recomb_master,
-        n_crosses * n_parents_per_cross
-    ).reshape(n_crosses, n_parents_per_cross, -1) # Reshape to (N, P, key_size)
-
-    mutate_random_key_array = jax.random.split(
-        key_for_mutation_master,
-        n_crosses * n_parents_per_cross
-    ).reshape(n_crosses, n_parents_per_cross, -1) # Reshape to (N, P, key_size)
+    random_keys = random_keys.reshape(2, len(parents), 2, parents.shape[3])
+    cross_random_key, mutate_random_key = random_keys
 
     if mutation_index_mask is None:
         mutation_index_mask = jnp.ones_like(recombination_vec, dtype=jnp.bool_)
         
-    # These are then passed to _cross, which expects them to be vmapped over.
+
     offsprings = _cross(
-        parents_rearranged, # Use the rearranged parents
+        parents,
         recombination_vec,
-        cross_random_key_array, # Pass the full array of keys
-        mutate_random_key_array,  # Pass the full array of keys
+        cross_random_key,
+        mutate_random_key,
         mutation_probability,
         mutation_index_mask,
     )
@@ -241,7 +233,7 @@ def _double_haploid(
 
 @jax.jit
 @partial(
-    jax.vmap, in_axes=(1, None, None, None, None, None), out_axes=1
+    jax.vmap, in_axes=(1, None, 0, 0, None, None), out_axes=1
 )
 def _meiosis(
     individual: Individual,
@@ -260,10 +252,8 @@ def _meiosis(
     
     mutation_samples = jax.random.uniform(mutate_random_key, shape=haploid.shape)
     mutation_prob_mask = mutation_samples < mutation_probability
-    # mutation_index_mask is (N_MARKERS,). True means masked (NO mutation).
-    # We need to make it (N_MARKERS, 1) and then invert it for the logic.
-    allow_mutation_here = jnp.logical_not(mutation_index_mask[:, None])
-    mutation_sites = jnp.logical_and(mutation_prob_mask, allow_mutation_here)
+    mutation_index_mask = mutation_index_mask[:, None]
+    mutation_sites = jnp.logical_and(mutation_prob_mask, mutation_index_mask)
     haploid = jnp.where(mutation_sites, 1 - haploid, haploid)
 
     return haploid.squeeze()

@@ -12,6 +12,7 @@ def test_cross(idx):
     n_markers, ploidy = 1000, 4
     n_crosses = 50
     parents_shape = (n_crosses, 2, n_markers, ploidy)
+    print(parents_shape)
     parents = np.random.choice([False, True], size=parents_shape)
     rec_vec = np.zeros(n_markers)
     rec_vec[0] = idx
@@ -53,8 +54,6 @@ def test_haploid():
         mutation_mask,
     )
     assert haploids.shape[-1] == ploidy/2
-
-
     
 
 def test_select():
