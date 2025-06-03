@@ -39,13 +39,12 @@ def test_double_haploid():
 def test_haploid():
     n_chr, chr_len, ploidy = 10, 100, 2
     n_markers, ploidy = n_chr * chr_len, 2
-    k = 10
     pop_shape = (50, n_markers, ploidy)
     f1 = np.random.choice([False, True], size=pop_shape)
     rec_vec = np.full((n_chr * chr_len,), 1.5 / chr_len)
     random_key = jax.random.key(42)
     mutation_mask = np.ones(n_markers, dtype=np.bool_)
-    haploids = functional.meiosis_only(
+    haploids = functional.meiosis(
         f1,
         rec_vec,
         random_key,
@@ -54,8 +53,6 @@ def test_haploid():
     )
     assert haploids.shape[-1] == ploidy/2
 
-
-    
 
 def test_select():
     n_markers, ploidy = 1000, 4
@@ -115,7 +112,7 @@ def test_cross_mutation():
     mutated_pop_mask = cross(zeros_pop, rec_vec, random_key, 0.5, mutation_mask)
     assert np.count_nonzero(mutated_pop_mask) > 0
     assert np.count_nonzero(1 - mutated_pop_mask) > 0
-    
+
     mutation_mask = np.zeros(n_markers, dtype=np.bool_)
     mutated_pop_mask = cross(zeros_pop, rec_vec, random_key, 0.5, mutation_mask)
     assert np.count_nonzero(mutated_pop_mask) == 0 

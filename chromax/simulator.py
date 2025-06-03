@@ -79,7 +79,6 @@ class Simulator:
         device: xc.Device = None,
         backend: Union[str, xc._xla.Client] = None,
     ):
-        # :TODO add genotype error
         """Initialization method. See class docstring for information about parameters."""
         self.random_key = None
         if seed is None:
@@ -298,7 +297,6 @@ class Simulator:
             keys_shape = len(cross_weights), len(population), 2, population.shape[-2]
             keys = jax.random.split(random_key, num=np.prod(keys_shape))
             keys = keys.reshape(*keys_shape, 2)
-            print(population.shape)
             outer_res = cross_pop(population, self.recombination_vec, keys)
             outer_res = outer_res.reshape(*outer_res.shape[:-2], -1)
             return (cross_weights[:, :, None, :] * outer_res).sum(axis=1)
