@@ -84,7 +84,7 @@ def meiosis(
     mutation_probability: float = 0.0,
     mutation_index_mask: Optional[Bool[Array, N_MARKERS]] = None,
 ) -> Population["n"]:
-    """ Convnience function for only doing meiosis and returning the haploids for selection
+    """ Convnience function for only doing meiosis and returning the haploids for selection.
 
     The same params as cross, but only returns the haploids, and no crosses just meiosis.
     """
