@@ -1,12 +1,12 @@
 """Functional module."""
+
 from functools import partial
-from typing import Callable, Tuple
-from einops import rearrange
+from typing import Callable, Optional, Tuple
 
 import jax
 import jax.numpy as jnp
-from jaxtyping import Array, Float, Int, Bool
-from typing import Optional
+from einops import rearrange
+from jaxtyping import Array, Bool, Float, Int
 
 from .typing import N_MARKERS, Haploid, Individual, Parents, Population
 
@@ -32,6 +32,9 @@ def cross(
     :type random_key: jax.Array
     :param mutation_probability: The probability of having a mutation in a marker.
     :type mutation_probability: float
+    :param mutation_index_mask: Mask for whether mutations can occur at the locus of
+        shape (n_markers). A True value indicates that a mutation can occur there.
+    :type mutation_index_mask: ndarray[bool]
     :return: offspring population of shape (n, m, d).
     :rtype: ndarray
 
@@ -55,6 +58,7 @@ def cross(
     random_keys = jax.random.split(
         random_key, num=2 * len(parents) * 2 * parents.shape[3]
     )
+
     random_keys = random_keys.reshape(2, len(parents), 2, parents.shape[3])
     cross_random_key, mutate_random_key = random_keys
 
@@ -104,8 +108,12 @@ def meiosis(
 
 
 @jax.jit
-@partial(jax.vmap, in_axes=(0, None, 0, 0, None, None))  # parallelize across individuals
-@partial(jax.vmap, in_axes=(0, None, 0, 0, None, None), out_axes=2)  # parallelize parents
+@partial(
+    jax.vmap, in_axes=(0, None, 0, 0, None, None)
+)  # parallelize across individuals
+@partial(
+    jax.vmap, in_axes=(0, None, 0, 0, None, None), out_axes=2
+)  # parallelize parents
 def _cross(
     parent: Individual,
     recombination_vec: Float[Array, N_MARKERS],
@@ -184,8 +192,12 @@ def double_haploid(
 
 
 @jax.jit
-@partial(jax.vmap, in_axes=(0, None, 0, 0, None, None))  # parallelize across individuals
-@partial(jax.vmap, in_axes=(None, None, 0, 0, None, None))  # parallelize across offsprings
+@partial(
+    jax.vmap, in_axes=(0, None, 0, 0, None, None)
+)  # parallelize across individuals
+@partial(
+    jax.vmap, in_axes=(None, None, 0, 0, None, None)
+)  # parallelize across offsprings
 def _double_haploid(
     individual: Individual,
     recombination_vec: Float[Array, N_MARKERS],
@@ -205,9 +217,7 @@ def _double_haploid(
 
 
 @jax.jit
-@partial(
-    jax.vmap, in_axes=(1, None, 0, 0, None, None), out_axes=1
-)
+@partial(jax.vmap, in_axes=(1, None, 0, 0, None, None), out_axes=1)
 def _meiosis(
     individual: Individual,
     recombination_vec: Float[Array, N_MARKERS],
@@ -275,7 +285,7 @@ def select(
         indices = jnp.dot(indices, weighting)
     elif indices.ndim > 1:
         indices = indices[..., 0]
-    else: 
+    else:
         pass
     _, best_pop = jax.lax.top_k(indices, k)
     return population[best_pop, :, :], best_pop

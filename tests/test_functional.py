@@ -51,7 +51,7 @@ def test_haploid():
         0.5,
         mutation_mask,
     )
-    assert haploids.shape[-1] == ploidy/2
+    assert haploids.shape[-1] == ploidy / 2
 
 
 def test_select():
@@ -115,7 +115,7 @@ def test_cross_mutation():
 
     mutation_mask = np.zeros(n_markers, dtype=np.bool_)
     mutated_pop_mask = cross(zeros_pop, rec_vec, random_key, 0.5, mutation_mask)
-    assert np.count_nonzero(mutated_pop_mask) == 0 
+    assert np.count_nonzero(mutated_pop_mask) == 0
 
 
 def test_dh_mutation():
