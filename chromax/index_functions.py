@@ -74,8 +74,6 @@ def conventional_index(
         pop: Population["n"], trait_index: int = 0
     ) -> Float[Array, "n"]:
         gebv = GEBV_model(pop)
-        # assert gebv.shape[-1] == 1
-        # return gebv[..., trait_index]
         return gebv
 
     return conventional_index_f
