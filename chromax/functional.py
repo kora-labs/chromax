@@ -84,13 +84,14 @@ def meiosis(
     mutation_probability: float = 0.0,
     mutation_index_mask: Optional[Bool[Array, N_MARKERS]] = None,
 ) -> Population["n"]:
-    """ Convnience function for only doing meiosis and returning the haploids for selection.
+    """Convnience function for only doing meiosis and returning the haploids for selection.
 
     The same params as cross, but only returns the haploids, and no crosses just meiosis.
     """
     breeding_pop = rearrange(breeding_pop, "n m (pl two) -> n m pl two", two=2)
     random_keys = jax.random.split(
-        random_key, num=2 * len(breeding_pop) * breeding_pop.shape[2])
+        random_key, num=2 * len(breeding_pop) * breeding_pop.shape[2]
+    )
     random_keys = random_keys.reshape(2, len(breeding_pop), breeding_pop.shape[2])
     cross_random_key, mutate_random_key = random_keys
 

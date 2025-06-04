@@ -29,9 +29,7 @@ mutation_mask_index[N_MARKERS // 2 :] = True
 genetic_map_data = {
     "CHR.PHYS": np.ones(N_MARKERS, dtype=int),
     "cM": np.arange(N_MARKERS, dtype=float) * 1.0,  # Dummy cM values
-    "Yield": np.random.default_rng(INITIAL_SEED).normal(
-        size=N_MARKERS
-    ),
+    "Yield": np.random.default_rng(INITIAL_SEED).normal(size=N_MARKERS),
 }
 genetic_map = pd.DataFrame(genetic_map_data)
 
