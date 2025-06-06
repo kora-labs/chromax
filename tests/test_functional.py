@@ -36,6 +36,24 @@ def test_double_haploid():
         assert np.all(dh[..., i * 2] == dh[..., i * 2 + 1])
 
 
+def test_haploid():
+    n_chr, chr_len, ploidy = 10, 100, 2
+    n_markers, ploidy = n_chr * chr_len, 2
+    pop_shape = (50, n_markers, ploidy)
+    f1 = np.random.choice([False, True], size=pop_shape)
+    rec_vec = np.full((n_chr * chr_len,), 1.5 / chr_len)
+    random_key = jax.random.key(42)
+    mutation_mask = np.ones(n_markers, dtype=np.bool_)
+    haploids = functional.meiosis(
+        f1,
+        rec_vec,
+        random_key,
+        0.5,
+        mutation_mask,
+    )
+    assert haploids.shape[-1] == ploidy / 2
+
+
 def test_select():
     n_markers, ploidy = 1000, 4
     k = 10
@@ -55,11 +73,26 @@ def test_select():
     assert np.min(f2_gebv) > np.min(f1_gebv)
 
 
+def test_select_with_weights():
+    n_markers, ploidy = 1000, 4
+    k = 10
+    n_traits = 7
+    pop_shape = (50, n_markers, ploidy)
+    f1 = np.random.choice([False, True], size=pop_shape)
+    marker_effects = np.random.randn(n_markers, n_traits)
+    gebv_model = TraitModel(marker_effects)
+    f_index = conventional_index(gebv_model)
+    weighting = np.random.randint(0, 10, size=n_traits)
+    weighting = weighting / np.sum(weighting)
+    f2, best_indices = functional.select(f1, k=k, f_index=f_index, weighting=weighting)
+
+
 def test_cross_mutation():
     n_markers, ploidy = 1000, 4
     zeros_pop = np.zeros((50, 2, n_markers, ploidy))
     ones_pop = np.ones((50, 2, n_markers, ploidy))
     rec_vec = np.full((n_markers,), 1.5e-2)
+    mutation_mask = np.ones(n_markers, dtype=np.bool_)
     cross = functional.cross
 
     random_key = jax.random.key(42)
@@ -74,6 +107,15 @@ def test_cross_mutation():
     mutated_pop = cross(ones_pop, rec_vec, random_key, 0.5)
     assert np.count_nonzero(mutated_pop) > 0
     assert np.count_nonzero(1 - mutated_pop) > 0
+
+    mutation_mask = np.ones(n_markers, dtype=np.bool_)
+    mutated_pop_mask = cross(zeros_pop, rec_vec, random_key, 0.5, mutation_mask)
+    assert np.count_nonzero(mutated_pop_mask) > 0
+    assert np.count_nonzero(1 - mutated_pop_mask) > 0
+
+    mutation_mask = np.zeros(n_markers, dtype=np.bool_)
+    mutated_pop_mask = cross(zeros_pop, rec_vec, random_key, 0.5, mutation_mask)
+    assert np.count_nonzero(mutated_pop_mask) == 0
 
 
 def test_dh_mutation():

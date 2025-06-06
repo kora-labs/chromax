@@ -1,10 +1,12 @@
 """Functional module."""
+
 from functools import partial
-from typing import Callable, Tuple
+from typing import Callable, Optional, Tuple
 
 import jax
 import jax.numpy as jnp
-from jaxtyping import Array, Float, Int
+from einops import rearrange
+from jaxtyping import Array, Bool, Float, Int
 
 from .typing import N_MARKERS, Haploid, Individual, Parents, Population
 
@@ -15,6 +17,7 @@ def cross(
     recombination_vec: Float[Array, N_MARKERS],
     random_key: jax.Array,
     mutation_probability: float = 0.0,
+    mutation_index_mask: Optional[Bool[Array, N_MARKERS]] = None,
 ) -> Population["n"]:
     """Main function that computes crosses from a list of parents.
 
@@ -29,6 +32,9 @@ def cross(
     :type random_key: jax.Array
     :param mutation_probability: The probability of having a mutation in a marker.
     :type mutation_probability: float
+    :param mutation_index_mask: Mask for whether mutations can occur at the locus of
+        shape (n_markers). A True value indicates that a mutation can occur there.
+    :type mutation_index_mask: ndarray[bool]
     :return: offspring population of shape (n, m, d).
     :rtype: ndarray
 
@@ -48,12 +54,16 @@ def cross(
         >>> f2.shape
         (50, 1000, 2)
     """
-    parents = parents.reshape(*parents.shape[:3], -1, 2)
+    parents = rearrange(parents, "n p m (pl two) -> n p m pl two", two=2, p=2)
     random_keys = jax.random.split(
         random_key, num=2 * len(parents) * 2 * parents.shape[3]
     )
+
     random_keys = random_keys.reshape(2, len(parents), 2, parents.shape[3])
     cross_random_key, mutate_random_key = random_keys
+
+    if mutation_index_mask is None:
+        mutation_index_mask = jnp.ones_like(recombination_vec, dtype=jnp.bool_)
 
     offsprings = _cross(
         parents,
@@ -61,19 +71,57 @@ def cross(
         cross_random_key,
         mutate_random_key,
         mutation_probability,
+        mutation_index_mask,
     )
-    return offsprings.reshape(*offsprings.shape[:-2], -1)
+    return rearrange(offsprings, "n m pl two -> n m (pl two)")
 
 
 @jax.jit
-@partial(jax.vmap, in_axes=(0, None, 0, 0, None))  # parallelize across individuals
-@partial(jax.vmap, in_axes=(0, None, 0, 0, None), out_axes=2)  # parallelize parents
+def meiosis(
+    breeding_pop: Population["n"],
+    recombination_vec: Float[Array, N_MARKERS],
+    random_key: jax.Array,
+    mutation_probability: float = 0.0,
+    mutation_index_mask: Optional[Bool[Array, N_MARKERS]] = None,
+) -> Population["n"]:
+    """Convnience function for only doing meiosis and returning the haploids for selection.
+
+    The same params as cross, but only returns the haploids, and no crosses just meiosis.
+    """
+    breeding_pop = rearrange(breeding_pop, "n m (pl two) -> n m pl two", two=2)
+    random_keys = jax.random.split(
+        random_key, num=2 * len(breeding_pop) * breeding_pop.shape[2]
+    )
+    random_keys = random_keys.reshape(2, len(breeding_pop), breeding_pop.shape[2])
+    cross_random_key, mutate_random_key = random_keys
+
+    if mutation_index_mask is None:
+        mutation_index_mask = jnp.ones_like(recombination_vec, dtype=jnp.bool_)
+    haploids = jax.vmap(_meiosis, in_axes=(0, None, 0, 0, None, None))(
+        breeding_pop,
+        recombination_vec,
+        cross_random_key,
+        mutate_random_key,
+        mutation_probability,
+        mutation_index_mask,
+    )
+    return haploids
+
+
+@jax.jit
+@partial(
+    jax.vmap, in_axes=(0, None, 0, 0, None, None)
+)  # parallelize across individuals
+@partial(
+    jax.vmap, in_axes=(0, None, 0, 0, None, None), out_axes=2
+)  # parallelize parents
 def _cross(
     parent: Individual,
     recombination_vec: Float[Array, N_MARKERS],
     cross_random_key: jax.Array,
     mutate_random_key: jax.Array,
     mutation_probability: float,
+    mutation_index_mask: Bool[Array, N_MARKERS],
 ) -> Haploid:
     return _meiosis(
         parent,
@@ -81,6 +129,7 @@ def _cross(
         cross_random_key,
         mutate_random_key,
         mutation_probability,
+        mutation_index_mask,
     )
 
 
@@ -90,6 +139,7 @@ def double_haploid(
     recombination_vec: Float[Array, N_MARKERS],
     random_key: jax.Array,
     mutation_probability: float = 0.0,
+    mutation_index_mask: Optional[Bool[Array, N_MARKERS]] = None,
 ) -> Population["n n_offspring"]:
     """Computes the double haploid of the input population.
 
@@ -128,26 +178,34 @@ def double_haploid(
         random_key, num=2 * len(population) * n_offspring * population.shape[2]
     ).reshape(2, len(population), n_offspring, population.shape[2])
     cross_random_key, mutate_random_key = keys
+    if mutation_index_mask is None:
+        mutation_index_mask = jnp.ones_like(recombination_vec, dtype=jnp.bool_)
     haploids = _double_haploid(
         population,
         recombination_vec,
         cross_random_key,
         mutate_random_key,
         mutation_probability,
+        mutation_index_mask,
     )
     dh_pop = jnp.broadcast_to(haploids[..., None], shape=(*haploids.shape, 2))
     return dh_pop.reshape(*dh_pop.shape[:-2], -1)
 
 
 @jax.jit
-@partial(jax.vmap, in_axes=(0, None, 0, 0, None))  # parallelize across individuals
-@partial(jax.vmap, in_axes=(None, None, 0, 0, None))  # parallelize across offsprings
+@partial(
+    jax.vmap, in_axes=(0, None, 0, 0, None, None)
+)  # parallelize across individuals
+@partial(
+    jax.vmap, in_axes=(None, None, 0, 0, None, None)
+)  # parallelize across offsprings
 def _double_haploid(
     individual: Individual,
     recombination_vec: Float[Array, N_MARKERS],
     cross_random_key: jax.Array,
     mutate_random_key: jax.Array,
     mutation_probability: float,
+    mutation_index_mask: Bool[Array, N_MARKERS],
 ) -> Haploid:
     return _meiosis(
         individual,
@@ -155,19 +213,19 @@ def _double_haploid(
         cross_random_key,
         mutate_random_key,
         mutation_probability,
+        mutation_index_mask,
     )
 
 
 @jax.jit
-@partial(
-    jax.vmap, in_axes=(1, None, 0, 0, None), out_axes=1
-)  # parallelize pair of chromosomes
+@partial(jax.vmap, in_axes=(1, None, 0, 0, None, None), out_axes=1)
 def _meiosis(
     individual: Individual,
     recombination_vec: Float[Array, N_MARKERS],
     cross_random_key: jax.Array,
     mutate_random_key: jax.Array,
     mutation_probability: float,
+    mutation_index_mask: Bool[Array, N_MARKERS],
 ) -> Haploid:
     samples = jax.random.uniform(cross_random_key, shape=recombination_vec.shape)
     rec_sites = samples < recombination_vec
@@ -177,7 +235,9 @@ def _meiosis(
     haploid = jnp.take_along_axis(individual, crossover_mask[:, None], axis=-1)
 
     mutation_samples = jax.random.uniform(mutate_random_key, shape=haploid.shape)
-    mutation_sites = mutation_samples < mutation_probability
+    mutation_prob_mask = mutation_samples < mutation_probability
+    mutation_index_mask = mutation_index_mask[:, None]
+    mutation_sites = jnp.logical_and(mutation_prob_mask, mutation_index_mask)
     haploid = jnp.where(mutation_sites, 1 - haploid, haploid)
 
     return haploid.squeeze()
@@ -187,6 +247,7 @@ def select(
     population: Population["n"],
     k: int,
     f_index: Callable[[Population["n"]], Float[Array, "n"]],
+    weighting: Float[Array, "n traits"] | None = None,
 ) -> Tuple[Population["k"], Int[Array, "k"]]:
     """Function to select individuals based on their score (index).
 
@@ -198,6 +259,8 @@ def select(
         The function accepts as input a population, i.e. and array of shape
         (n, m, 2) and returns an array of n float number.
     :type f_index: Callable
+    :param weigting: array of t float number to weight the traits.
+    :type weighting: ndarray
 
     :return: output population of shape (k, m, d), output indices of shape (k,)
     :rtype: tuple of two ndarrays
@@ -218,5 +281,12 @@ def select(
         (10, 1000, 2)
     """
     indices = f_index(population)
+    if weighting is not None:
+        assert weighting.shape[0] == indices.shape[1]
+        indices = jnp.dot(indices, weighting)
+    elif indices.ndim > 1:
+        indices = indices[..., 0]
+    else:
+        pass
     _, best_pop = jax.lax.top_k(indices, k)
     return population[best_pop, :, :], best_pop

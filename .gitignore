@@ -5,3 +5,8 @@ __pycache__/
 venv
 docs/_build
 docs/.DS_Store
+build/
+.aider*
+.env*
+junk.py
+CLAUDE.md
