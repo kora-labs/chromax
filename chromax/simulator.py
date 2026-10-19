@@ -108,7 +108,9 @@ class Simulator:
 
         self.n_markers = len(genetic_map)
         chr_map = genetic_map[chr_column]
-        self.chr_lens = chr_map.groupby(chr_map).count().values
+        # lengths of consecutive runs of the same chromosome, in map order
+        chr_starts = np.flatnonzero(chr_map.values[1:] != chr_map.values[:-1]) + 1
+        self.chr_lens = np.diff(chr_starts, prepend=0, append=len(chr_map))
 
         mrk_effects = genetic_map[self.trait_names]
         self.GEBV_model = TraitModel(
@@ -146,13 +148,8 @@ class Simulator:
         elif position_column in genetic_map.columns:
             self.cM = genetic_map[position_column].to_numpy(dtype=np.float32)
             recombination_vec = np.zeros(self.n_markers, dtype=np.float32)
-            start_idx = 0
-            for chr_len in self.chr_lens:
-                end_idx = start_idx + chr_len
-                recombination_vec[start_idx + 1 : end_idx] = (
-                    self.cM[start_idx + 1 : end_idx] - self.cM[start_idx : end_idx - 1]
-                )
-                recombination_vec /= 100
+            # values at the first marker of each chromosome are overwritten below
+            recombination_vec[1:] = (self.cM[1:] - self.cM[:-1]) / 100
         else:
             raise ValueError(
                 f"One between {recombination_column} and {position_column} must be specified"
