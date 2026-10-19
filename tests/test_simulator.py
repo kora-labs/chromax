@@ -275,3 +275,22 @@ def test_mutation():
     simulator = MockSimulator(n_markers, rec_vec, mutation_probability=0.5)
     assert not np.all(simulator.cross(parents) == population)
     assert not np.all(simulator.cross(parents) != population)
+
+
+@pytest.mark.parametrize("chr_ids", [["1", "2", "3"], ["2", "10", "1"]])
+def test_recombination_vec_multi_chr(chr_ids):
+    chr_lens = [5, 6, 4]
+    step_rec = 0.03
+    chr_col = np.repeat(chr_ids, chr_lens)
+    cM = np.concatenate([np.arange(n) * step_rec * 100 for n in chr_lens])
+    expected_rec = np.full(sum(chr_lens), step_rec, dtype=np.float32)
+    expected_rec[np.cumsum([0] + chr_lens[:-1])] = 0.5
+
+    gmap = pd.DataFrame({"CHR.PHYS": chr_col, "cM": cM, "Trait": 1.0})
+    simulator = Simulator(genetic_map=gmap)
+    assert np.allclose(simulator.recombination_vec, expected_rec)
+
+    gmap = pd.DataFrame({"CHR.PHYS": chr_col, "RecombRate": step_rec, "Trait": 1.0})
+    simulator = Simulator(genetic_map=gmap)
+    assert np.allclose(simulator.recombination_vec, expected_rec)
+    assert np.allclose(simulator.cM, cM)
