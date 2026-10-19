@@ -148,7 +148,6 @@ class Simulator:
         elif position_column in genetic_map.columns:
             self.cM = genetic_map[position_column].to_numpy(dtype=np.float32)
             recombination_vec = np.zeros(self.n_markers, dtype=np.float32)
-            # values at the first marker of each chromosome are overwritten below
             recombination_vec[1:] = (self.cM[1:] - self.cM[:-1]) / 100
         else:
             raise ValueError(
